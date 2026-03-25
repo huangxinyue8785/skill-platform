@@ -1,0 +1,213 @@
+/**
+ * 收藏相关的业务逻辑
+ */
+const db = require('../config/db')
+const {success,error} = require('../utils/response')
+
+//添加收藏 - 接口：POST /api/favorites
+const addFavorite = async (req,res) =>{
+    try{
+        const userId = req.user.id
+        const {service_id} = req.body
+
+        if(!service_id){
+            return res.json(error('请选择要收藏的服务',400))
+        }
+
+        const [services] =await db.query(
+            'SELECT id FROM services WHERE id = ? AND status = 1',
+            [service_id]
+        )
+
+        if(services.length === 0){
+            return res.json(error('服务不存在或已下架',404))
+        }
+
+        const [existing] = await db.query(
+            'SELECT id FROM favorites WHERE user_id = ? AND service_id = ?',
+            [userId,service_id]
+        )
+
+        if(existing.length > 0){
+            return res.json(error('已经收藏过了',400))
+        }
+
+        const [result] = await db.query(
+            'INSERT INTO favorites (user_id,service_id) VALUES (?,?)',
+            [userId,service_id]
+        )
+
+        await db.query(
+            'UPDATE users SET favorite_count = favorite_count + 1 WHERE id = ?',
+            [userId]
+        )
+
+        console.log(`【添加收藏】用户 ${req.user.username} 收藏了服务 ${service_id}`)
+
+        res.json(success({
+            favoriteId:result.insertId,
+        },'收藏成功'))
+
+    }catch (err){
+        console.error('添加收藏失败',err)
+        res.json(error('服务器错误',500))
+    }
+}
+
+//取消收藏 - 接口：DELETE /api/favorites/:id
+const removeFavorite = async (req,res)=>{
+    try{
+        const userId = req.user.id
+        const favoriteId = req.params.id
+
+        if(!favoriteId){
+            return res.json(error('收藏ID不能为空',400))
+        }
+
+        const [favorites] = await db.query(
+            'SELECT id,service_id FROM favorites WHERE id = ? AND user_id = ?',
+            [favoriteId,userId]
+        )
+
+        if(favorites.length === 0){
+            return res.json(error('收藏不存在',400))
+        }
+
+        await db.query('DELETE FROM favorites WHERE id = ?', [favoriteId])
+
+        // 使用 GREATEST 确保不会减到负数
+        await db.query(
+            'UPDATE users SET favorite_count = GREATEST(favorite_count - 1, 0) WHERE id = ?',
+            [userId]
+        )
+
+        console.log(`【取消收藏】用户 ${req.user.username} 取消了收藏 ${favoriteId}`)
+
+        res.json(success(null, '取消收藏成功'))
+
+    }catch (err){
+        console.error('取消收藏失败',err)
+        res.json(error('服务器错误',500))
+    }
+}
+
+//获取收藏列表 - 接口：GET /api/favorites
+const getFavoriteList = async (req,res)=>{
+    try{
+        const userId = req.user.id
+        const {
+            page = 1,
+            pageSize = 10
+        } =req.query
+
+        const offset = (page - 1) * pageSize
+
+        const [countResult] = await db.query(
+            'SELECT COUNT(*) as total FROM favorites WHERE user_id = ?',
+            [userId]
+        )
+        const total = countResult[0].total
+
+        const [favorites] = await db.query(
+            `SELECT 
+                f.id as favorite_id,
+                f.create_time as favorite_time,
+                s.id as service_id,
+                s.title,
+                s.description,
+                s.price,
+                s.images,
+                s.view_count,
+                s.status,
+                u.id as user_id,
+                u.nickname as user_nickname,
+                u.avatar as user_avatar,
+                c.id as category_id,
+                c.name as category_name
+             FROM favorites f
+             LEFT JOIN services s ON f.service_id = s.id
+             LEFT JOIN users u ON s.user_id = u.id
+             LEFT JOIN categories c ON s.category_id = c.id
+             WHERE f.user_id = ?
+             ORDER BY f.create_time DESC
+             LIMIT ? OFFSET ?`,
+            [userId, parseInt(pageSize), offset]
+        )
+
+        const formattedList = favorites.map(item => {
+            const images = item.images ? item.images.split(',') : []
+
+            return {
+                favoriteId: item.favorite_id,
+                favoriteTime: item.favorite_time,
+                service: {
+                    id: item.service_id,
+                    title: item.title,
+                    description: item.description,
+                    price: item.price,
+                    images: images,
+                    viewCount: item.view_count,
+                    status: item.status,
+                    statusText: item.status === 1 ? '已上架' : '已下架',
+                    user: {
+                        id: item.user_id,
+                        nickname: item.user_nickname,
+                        avatar: item.user_avatar
+                    },
+                    category: {
+                        id: item.category_id,
+                        name: item.category_name
+                    }
+                }
+            }
+        })
+
+        res.json(success({
+            list: formattedList,
+            total,
+            page: parseInt(page),
+            pageSize: parseInt(pageSize),
+            totalPages: Math.ceil(total / pageSize)
+        }, '获取成功'))
+
+    }catch (err){
+        console.error('获取收藏列表失败:', err)
+        res.json(error('服务器错误', 500))
+    }
+}
+
+//检查是否收藏 - 接口：GET /api/favorites/check/:serviceId
+const checkFavorite = async (req,res)=>{
+    try{
+        const userId = req.user.id
+        const serviceId = req.params.serviceId
+
+        if (!serviceId) {
+            return res.json(error('服务ID不能为空', 400))
+        }
+
+        const [favorites] = await db.query(
+            'SELECT id FROM favorites WHERE user_id = ? AND service_id = ?',
+            [userId, serviceId]
+        )
+
+        const isFavorited = favorites.length > 0
+        const favoriteId = isFavorited ? favorites[0].id : null
+
+        res.json(success({
+            isFavorited,
+            favoriteId
+        }, '获取成功'))
+
+    }catch (err){
+        console.error('检查是否收藏失败:', err)
+        res.json(error('服务器错误', 500))
+    }
+}
+
+module.exports = {
+    addFavorite,
+    removeFavorite,
+    getFavoriteList,
+    checkFavorite,
+}

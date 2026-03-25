@@ -1,0 +1,23 @@
+/* 在 App.vue 的 style 或 common-style.scss 里添加 */
+page {
+	padding-bottom: constant(safe-area-inset-bottom);
+	padding-bottom: env(safe-area-inset-bottom);
+}
+view,swiper,swiper-item{
+	box-sizing: border-box;
+}
+
+.pageBg{
+	background: 
+	linear-gradient(to bottom,transparent 0%,#fff 400rpx),
+	linear-gradient(to right,#d0f3f9 20%,#f2e89f);
+	min-height: 80vh;
+}
+
+.loadingLayout{
+	padding: 30rpx 0;
+}
+
+.safe-area-inset-bottom{
+	height: env(safe-area-inset-bottom);
+}
