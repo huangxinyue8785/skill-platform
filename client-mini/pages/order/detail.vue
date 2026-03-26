@@ -145,7 +145,6 @@ onLoad((options) => {
 	if (options.id) {
 		orderId.value = options.id
 		fromPay.value = options.fromPay === 'true'
-		console.log('fromPay 值:', fromPay.value, '原始值:', options.fromPay)
 		loadOrderDetail()
 	} else {
 		uni.showToast({
@@ -158,14 +157,12 @@ onLoad((options) => {
 
 // ✅ 页面卸载时处理返回逻辑
 onUnload(() => {
-	console.log('页面卸载, fromPay:', fromPay.value)
 	// 清理定时器
 	if (autoCheckTimer.value) {
 		clearTimeout(autoCheckTimer.value)
 	}
 	// 从支付页过来的，返回首页
 	if (fromPay.value) {
-		console.log('从支付页来，返回首页')
 		setTimeout(() => {
 			uni.switchTab({
 				url: '/pages/index/index'
@@ -180,7 +177,6 @@ const loadOrderDetail = async () => {
 		loading.value = true
 		const res = await getOrderDetail(orderId.value)
 		order.value = res
-		console.log('订单详情:', res)
 
 		// 自动检测：如果订单是待支付状态，启动自动检测
 		if (res.status === 0) {
@@ -212,7 +208,6 @@ const startAutoCheck = () => {
 					title: '支付成功！',
 					icon: 'success'
 				})
-				console.log('自动检测到支付成功')
 			}
 		} catch (err) {
 			console.error('自动检测失败', err)

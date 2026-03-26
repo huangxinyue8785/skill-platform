@@ -67,10 +67,9 @@
 			<!-- 左边按钮组：联系卖家 + 收藏（左右排列） -->
 			<view class="action-btns">
 				<!-- 联系卖家按钮 -->
-				<button class="action-btn contact-btn" open-type="contact"
-					v-if="service.user?.id !== userStore.userInfo?.id">
-					<image src="/static/contact.png" mode="aspectFit" class="btn-icon"></image>
-					<text class="btn-text">联系卖家</text>
+				<button class="action-btn contact-btn" @click="goToChat">
+				  <image src="/static/contact.png" mode="aspectFit" class="btn-icon"></image>
+				  <text class="btn-text">联系卖家</text>
 				</button>
 
 				<!-- 收藏按钮 -->
@@ -131,7 +130,6 @@
 	// 监听登录成功事件
 	const setupLoginListener = () => {
 		uni.$on('loginSuccess', () => {
-			console.log('登录成功，刷新数据')
 			checkFavoriteStatus()
 			loadServiceDetail()
 		})
@@ -177,11 +175,6 @@
 				// 从首页等公开入口进来，用公开接口（只能看已上架）
 				res = await getServiceDetail(serviceId.value)
 			}
-	
-			console.log('服务详情完整数据：', JSON.stringify(res, null, 2))
-			console.log('用户信息：', res.user)
-			console.log('serviceCount：', res.user?.serviceCount)
-			console.log('service_count：', res.user?.service_count)
 			
 			service.value = res
 		} catch (err) {
@@ -253,6 +246,14 @@
 				icon: 'none'
 			})
 		}
+	}
+	
+	const goToChat = () => {
+	  if (!checkLogin()) return
+	  const user = service.value.user
+	  uni.navigateTo({
+	    url: `/pages/chat/chat?userId=${user.id}&nickname=${encodeURIComponent(user.nickname)}&avatar=${encodeURIComponent(user.avatar || '')}`
+	  })
 	}
 
 	// goToBuy 函数

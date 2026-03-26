@@ -11,7 +11,6 @@
 		</view>
 
 		<view class="form">
-			<!-- 表单主体 - 自动撑开 -->
 			<view class="form-main">
 				<view class="input-item">
 					<input class="input" v-model="username" type="text" placeholder="用户名"
@@ -22,7 +21,6 @@
 						:password="!showPassword" placeholder="密码" placeholder-class="placeholder-style">
 					<uni-icons :type="showPassword ? 'eye-filled' : 'eye-slash-filled'" size="24" color="#999999"
 						@click="toggleShowPassword" class="eye-icon"></uni-icons>
-
 				</view>
 
 				<view class="forgot-password">
@@ -39,7 +37,6 @@
 				</view>
 			</view>
 
-			<!-- 协议区域 - 固定在底部 -->
 			<view class="agreement">
 				<view class="checkbox-wrapper" @tap="toggleAgree">
 					<view class="checkbox" :class="{ 'checked': isAgreed }">
@@ -60,13 +57,22 @@
 	import {
 		ref
 	} from 'vue'
-	import { onLoad } from '@dcloudio/uni-app'
+	import {
+		onLoad
+	} from '@dcloudio/uni-app'
 	import {
 		login
 	} from '@/api/user.js'
 	import {
 		useUserStore
 	} from '@/stores/user.js'
+	import {
+		loginIM,
+		updateMyProfile,
+		waitForSDKReady,
+		logoutIM, // ✅ 添加这个
+		getTIM
+	} from '@/utils/im'
 
 	const username = ref('')
 	const password = ref('')
@@ -100,34 +106,88 @@
 		})
 	}
 
-	// login.vue - handleLogin 函数
+	// login.vue 中的 handleLogin 函数
 	const handleLogin = async () => {
 	  if (!isAgreed.value) {
-	    uni.showToast({ title: '请先同意用户协议', icon: 'none' })
+	    uni.showToast({
+	      title: '请先同意用户协议',
+	      icon: 'none'
+	    })
 	    return
 	  }
 	
 	  if (!username.value.trim() || !password.value.trim()) {
-	    uni.showToast({ title: '请输入用户名和密码', icon: 'none' })
+	    uni.showToast({
+	      title: '请输入用户名和密码',
+	      icon: 'none'
+	    })
 	    return
 	  }
 	
 	  isLoading.value = true
 	  try {
+	    // 1. 后端登录
 	    const res = await login(username.value, password.value)
+	    console.log('后端登录成功:', res)
+	
+	    // 2. 检查并退出旧的 IM 登录
+	    const tim = getTIM()
+	    try {
+	      const currentIMUser = tim._userID || null
+	      if (currentIMUser && String(currentIMUser) !== String(res.user.id)) {
+	        console.log(`检测到 IM 登录用户 ${currentIMUser} 与即将登录用户 ${res.user.id} 不一致，先退出 IM`)
+	        await logoutIM()
+	        await new Promise(resolve => setTimeout(resolve, 500))
+	      }
+	    } catch (err) {
+	      console.log('获取 IM 登录状态失败', err)
+	    }
+	
+	    // 3. 保存用户信息
 	    userStore.setUserInfo(res.user, res.token)
 	
-	    uni.showToast({ title: '登录成功', icon: 'success' })
+	    // 4. 获取 UserSig
+	    const imRes = await uni.request({
+	      url: 'http://10.64.29.106:3000/api/user/im/usersig',
+	      method: 'GET',
+	      header: {
+	        'Authorization': `Bearer ${res.token}`
+	      }
+	    })
+	
+	    if (imRes.data.code === 200) {
+	      // 5. 登录 IM
+	      await loginIM(String(res.user.id), imRes.data.data.userSig)
+	      console.log('IM 登录完成')
+	
+	      // 6. 等待 SDK 就绪
+	      await waitForSDKReady()
+	      console.log('SDK 已就绪')
+	
+	      // ✅ 7. 关键：立即同步用户资料（包括头像）
+	      const avatarUrl = res.user.avatar ?
+	        `http://10.64.29.106:3000${res.user.avatar}` :
+	        ''
+	      
+	      console.log('正在同步用户资料，头像URL:', avatarUrl)
+	      
+	      await updateMyProfile(
+	        res.user.nickname || '用户',
+	        avatarUrl
+	      )
+	      console.log('用户资料同步完成')
+	    }
+	
+	    uni.showToast({
+	      title: '登录成功',
+	      icon: 'success'
+	    })
 	
 	    setTimeout(() => {
-	      // 如果有 redirect 参数，说明是从其他页面跳过来的
 	      if (redirect.value) {
-	        // 触发事件，让原页面刷新数据
 	        uni.$emit('loginSuccess', pageOptions.value)
-	        // 返回上一页
 	        uni.navigateBack()
 	      } else {
-	        // 没有 redirect，说明是直接进入登录页，跳转到首页
 	        uni.switchTab({
 	          url: '/pages/index/index'
 	        })
@@ -136,29 +196,33 @@
 	
 	  } catch (err) {
 	    console.error('登录失败：', err)
+	    uni.showToast({
+	      title: err.message || '登录失败',
+	      icon: 'none'
+	    })
 	  } finally {
 	    isLoading.value = false
 	  }
 	}
-
-	// 切换密码显示状态
+	
+	// 切换密码显示
 	const toggleShowPassword = () => {
 		showPassword.value = !showPassword.value
 	}
 
-	// 切换协议勾选状态
+	// 切换协议
 	const toggleAgree = () => {
 		isAgreed.value = !isAgreed.value
 	}
 
-	// 跳转到注册页
+	// 跳转注册
 	const goToRegister = () => {
 		uni.navigateTo({
 			url: '/pages/register/register'
 		})
 	}
 
-	// 打开用户协议（现在先提示，后面可以跳转到协议页面）
+	// 打开用户协议
 	const openUserAgreement = () => {
 		uni.showToast({
 			title: '用户协议（开发中）',
@@ -180,8 +244,6 @@
 		min-height: 100vh;
 		position: relative;
 		overflow: hidden;
-
-		// 整个容器变成 flex 列布局
 		display: flex;
 		flex-direction: column;
 
@@ -230,15 +292,12 @@
 
 		.form {
 			margin: 0 40rpx;
-
-			// 表单也变成 flex 列布局
 			display: flex;
 			flex-direction: column;
-			flex: 1; // 占满剩余空间
+			flex: 1;
 
-			// 表单主体 - 自动撑开
 			.form-main {
-				flex: 1; // 这部分自动撑开
+				flex: 1;
 			}
 
 			.input-item {
@@ -248,7 +307,6 @@
 				padding: 20rpx;
 				display: flex;
 				align-items: center;
-
 
 				.input {
 					width: 100%;
@@ -277,14 +335,12 @@
 				background: linear-gradient(135deg, rgba(254, 222, 101, 100), rgba(203, 244, 253, 100));
 				color: #333333;
 				border-radius: 50rpx;
-				height: 100rpx; // 固定高度
-				line-height: 100rpx; // 固定行高
+				height: 100rpx;
+				line-height: 100rpx;
 				font-size: 34rpx;
 				font-weight: 500;
 				letter-spacing: 4rpx;
 				margin-bottom: 40rpx;
-
-				// 确保按钮不被压缩
 				flex-shrink: 0;
 
 				&:active {
@@ -297,7 +353,7 @@
 				font-size: 30rpx;
 				color: #666666;
 				margin-bottom: 60rpx;
-				flex-shrink: 0; // 确保不被压缩
+				flex-shrink: 0;
 
 				.register-link {
 					color: #333333;
@@ -306,7 +362,6 @@
 				}
 			}
 
-			// 协议区域 - 固定在底部
 			.agreement {
 				flex-shrink: 0;
 				display: flex;
@@ -315,8 +370,7 @@
 				flex-wrap: wrap;
 				font-size: 26rpx;
 				color: #999999;
-
-				margin-top: auto; // 上边距自动，推到最下面
+				margin-top: auto;
 				padding: 30rpx 0 40rpx;
 
 				.checkbox-wrapper {

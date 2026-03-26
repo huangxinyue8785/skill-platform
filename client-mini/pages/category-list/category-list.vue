@@ -137,8 +137,6 @@
 				params.category_id = categoryId.value
 			}
 
-			console.log('分类列表请求参数：', params)
-
 			const res = await getServiceList(params)
 
 			if (isRefresh) {

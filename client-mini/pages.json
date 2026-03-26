@@ -127,6 +127,19 @@
 			"style": {
 				"navigationBarTitleText": "订单详情"
 			}
+		},
+		{
+			"path": "pages/chat/chat",
+			"style": {
+				"navigationBarTitleText": "聊天"
+			}
+		},
+		{
+			"path": "pages/conversation/conversation",
+			"style": {
+				"navigationStyle": "custom",
+				"enablePullDownRefresh": true
+			}
 		}
 	],
 	"tabBar": {
@@ -145,6 +158,12 @@
 				"text": "发布",
 				"iconPath": "static/tab/publish.png",
 				"selectedIconPath": "static/tab/publish-active.png"
+			},
+			{
+				"pagePath": "pages/conversation/conversation",
+				"text": "消息",
+				"iconPath": "static/tab/message.png",
+				"selectedIconPath": "static/tab/message-active.png"
 			},
 			{
 				"pagePath": "pages/user/user",

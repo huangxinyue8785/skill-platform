@@ -1,32 +1,35 @@
-import {
-	defineStore
-} from 'pinia'
+// stores/user.js
+import { defineStore } from 'pinia'
+import { logoutIM } from '@/utils/im'
 
 export const useUserStore = defineStore('user', {
-	state: () => ({
-		token: uni.getStorageSync('token') || '',
-		userInfo: uni.getStorageSync('userInfo') || null
-	}),
+  state: () => ({
+    token: uni.getStorageSync('token') || '',
+    userInfo: uni.getStorageSync('userInfo') || null
+  }),
 
-	actions: {
-		setUserInfo(userInfo, token) {
-			this.userInfo = userInfo
-			this.token = token
+  actions: {
+    setUserInfo(userInfo, token) {
+      this.userInfo = userInfo
+      this.token = token
 
-			uni.setStorageSync('userInfo', userInfo)
-			uni.setStorageSync('token', token)
+      uni.setStorageSync('userInfo', userInfo)
+      uni.setStorageSync('token', token)
 
-			console.log('用户已登录', userInfo.nickname);
-		},
+      console.log('用户已登录', userInfo.nickname)
+    },
 
-		logout() {
-			this.userInfo = null
-			this.token = ''
+    async logout() {
+      // ✅ 先退出 IM
+      await logoutIM()
+      
+      this.userInfo = null
+      this.token = ''
 
-			uni.removeStorageSync('userInfo')
-			uni.removeStorageSync('token')
+      uni.removeStorageSync('userInfo')
+      uni.removeStorageSync('token')
 
-			console.log('用户已退出');
-		}
-	}
+      console.log('用户已退出')
+    }
+  }
 })

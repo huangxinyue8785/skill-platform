@@ -117,13 +117,11 @@
 
 	// 在 onLoad 里调用一次
 	onLoad(() => {
-		console.log('首页加载了')
 		setupHomeSchoolListener()
 		getRandomSaying() // 加这一行就行
 		
 		 // 👇 添加监听头像更新事件
 		    uni.$on('avatarUpdated', () => {
-		        console.log('头像已更新，刷新服务列表')
 		        // 刷新服务列表（重置到第一页）
 		        page.value = 1
 		        loadServices(true)
@@ -176,7 +174,6 @@
 	const loadCategories = async () => {
 		try {
 			const res = await getParentCategories()
-			console.log('父分类数量：', res.length)
 
 			categoryList.value = res.map((item, index) => ({
 				id: item.id,
@@ -249,10 +246,8 @@
 	      params.school_id = currentSchoolId.value
 	    }
 	
-	    console.log('请求参数：', params)
 	
 	    const res = await getServiceList(params)
-	    console.log('服务列表：', res)
 	
 	    if (isRefresh) {
 	      serviceList.value = res.list
@@ -367,7 +362,6 @@
 
 	// 生命周期
 	onLoad(() => {
-		console.log('首页加载了')
 		setupHomeSchoolListener()
 	})
 
@@ -382,7 +376,6 @@
 	})
 
 	onPullDownRefresh(() => {
-	  console.log('下拉刷新触发')
 	  page.value = 1
 	  loadServices(true)
 	})

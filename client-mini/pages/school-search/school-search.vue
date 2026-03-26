@@ -166,8 +166,6 @@ onLoad((options) => {
 	if (options.currentSchoolName) {
 		currentSchoolName.value = decodeURIComponent(options.currentSchoolName)
 	}
-	
-	console.log('当前学校ID：', currentSchoolId.value, '当前学校名：', currentSchoolName.value, '来自页面：', fromPage.value)
 })
 
 // 加载历史搜索

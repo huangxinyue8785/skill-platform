@@ -18,7 +18,6 @@ onLoad((options) => {
 
 // 处理从 web-view 返回的消息（可选）
 const handleMessage = (event) => {
-	console.log('收到web-view消息', event.detail)
 	// 可以在这里处理支付成功后的逻辑
 }
 </script>

@@ -160,10 +160,7 @@ const loadFavorites = async (isRefresh = false) => {
 			pageSize: pageSize.value
 		}
 
-		console.log('请求参数:', params)
-
 		const res = await getFavoriteList(params)
-		console.log('返回数据:', res)
 
 		if (isRefresh) {
 			favoritesList.value = res.list || []
@@ -186,13 +183,6 @@ const loadFavorites = async (isRefresh = false) => {
 		} else {
 			loadMoreStatus.value = 'more'
 		}
-
-		console.log('加载完成', {
-			列表长度: favoritesList.value.length,
-			总条数: total.value,
-			加载状态: loadMoreStatus.value
-		})
-
 	} catch (err) {
 		console.error('加载收藏失败', err)
 		loadMoreStatus.value = 'more'
@@ -208,7 +198,6 @@ const loadFavorites = async (isRefresh = false) => {
 
 // ==================== 刷新列表 ====================
 const refreshList = () => {
-	console.log('刷新列表')
 	page.value = 1
 	loadFavorites(true)
 }
@@ -221,13 +210,6 @@ const onRefresh = () => {
 
 // ==================== 上拉加载更多 ====================
 const loadMore = () => {
-	console.log('触发loadMore', {
-		loadMoreStatus: loadMoreStatus.value,
-		loading: loading.value,
-		page: page.value,
-		listLength: favoritesList.value.length,
-		total: total.value
-	})
 
 	// 当还有更多数据且不在加载中时，才加载
 	if (loadMoreStatus.value === 'more' && !loading.value) {

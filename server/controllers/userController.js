@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const { success, error } = require('../utils/response');
 const fs = require('fs')
 const path = require('path');
+const TLSSigAPIv2 = require('tls-sig-api-v2');
 
 // 用户注册 接口地址：POST /api/user/register
 const userRegister = async (req, res) => {
@@ -467,6 +468,49 @@ const uploadAvatar = async (req,res)=>{
     }
 }
 
+// 生成 IM 的 UserSig
+const getUserSig = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // 你的腾讯云 IM 配置
+        const sdkAppId = 1600133706;
+        const secretKey = '4063cf400a97f0a97659c844bb810c02db3a9f6e7ef564d34d2c59cfdae1d685';
+
+        // 生成 UserSig，有效期 180 天
+        const api = new TLSSigAPIv2.Api(sdkAppId, secretKey);
+        const userSig = api.genSig(userId.toString(), 86400 * 180);
+
+        console.log(`用户 ${userId} 生成 UserSig 成功`);
+        res.json(success({ userSig }, '获取成功'));
+
+    } catch (err) {
+        console.error('生成 UserSig 失败:', err);
+        res.json(error('服务器错误', 500));
+    }
+};
+
+// 获取指定用户信息（公开）
+const getUserInfoById = async (req, res) => {
+    try {
+        const userId = req.params.id;
+
+        const [users] = await db.query(
+            `SELECT id, username, nickname, avatar FROM users WHERE id = ?`,
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return res.json(error('用户不存在', 404));
+        }
+
+        res.json(success(users[0], '获取成功'));
+    } catch (err) {
+        console.error('获取用户信息失败', err);
+        res.json(error('服务器错误', 500));
+    }
+};
+
 module.exports = {
     userRegister,
     userLogin,
@@ -474,4 +518,6 @@ module.exports = {
     updateUserInfo,
     updatePassword,
     uploadAvatar,
+    getUserSig,
+    getUserInfoById
 };

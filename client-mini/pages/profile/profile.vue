@@ -160,7 +160,6 @@ const hasChanges = () => {
 // ========== 个人信息页专用的学校选择监听 ==========
 const setupSchoolListener = () => {
 	uni.$on('profileSchoolSelected', (school) => {
-		console.log('个人信息页接收到选择的学校：', school)
 
 		// 更新显示的学校名称
 		schoolName.value = school.name
@@ -244,13 +243,10 @@ const saveProfile = async () => {
 		// 在保存头像的地方
 		if (hasNewAvatar.value && avatarPreview.value) {
 		  uni.showLoading({ title: '上传头像中...' })
-		  console.log('开始上传头像，文件：', avatarPreview.value)
 		  
 		  const uploadRes = await uploadAvatar(avatarPreview.value)
-		  console.log('上传返回结果：', uploadRes)  // 看这里返回的是什么
 		  
 		  newAvatarUrl = uploadRes.avatarUrl
-		  console.log('新头像URL：', newAvatarUrl)
 		}
 		
 		const currentSchoolName = schoolName.value
@@ -271,10 +267,8 @@ const saveProfile = async () => {
 			avatar: newAvatarUrl  // 上传后的新头像URL
 		}
 
-		console.log('提交的数据：', updateData)
 
 		const res = await updateUserInfo(updateData)
-		console.log('后端返回的数据：', res)
 
 		if (res.birthday && res.birthday.includes('T')) {
 			res.birthday = res.birthday.split('T')[0]
@@ -386,7 +380,6 @@ const endDate = computed(() => {
 // 生日选择事件
 const onBirthdayChange = (e) => {
 	const selectedDate = e.detail.value
-	console.log('选择的生日：', selectedDate)
 	userInfo.value.birthday = selectedDate
 }
 
