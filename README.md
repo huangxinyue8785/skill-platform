@@ -804,7 +804,7 @@ VITE v5.x.x  ready in xxx ms
 | 项目     | 信息                                       |
 | -------- | ------------------------------------------ |
 | 作者     | healer                                     |
-| 邮箱     | your-email@example.com                     |
+| 邮箱     | hxy8785@qq.com                             |
 | Gitee    | https://gitee.com/healer_xy                |
 | 项目地址 | https://gitee.com/healer_xy/skill-platform |
 
