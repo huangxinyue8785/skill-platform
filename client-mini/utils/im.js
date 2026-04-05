@@ -2,6 +2,7 @@
 import TIM from 'tim-wx-sdk'
 import TIMUploadPlugin from 'tim-upload-plugin'
 
+
 let tim = null
 let isSDKReady = false
 let readyCallbacks = []

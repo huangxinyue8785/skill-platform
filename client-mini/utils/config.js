@@ -1,25 +1,21 @@
 // utils/config.js
 
-// 开发环境用电脑IP（就是你之前用的 10.64.29.106）
-const DEV_IP = '10.64.29.106'
-const DEV_PORT = '3000'
-
-// 生产环境用正式域名（现在用不到，以后上线再改）
-// const PROD_DOMAIN = 'https://api.yourdomain.com'
+// 直接用电脑 IP
+const DEV_URL = 'http://10.64.29.106:3000'
 
 // #ifdef MP-WEIXIN
 // 小程序环境
-const baseUrl = `http://${DEV_IP}:${DEV_PORT}`
+const baseUrl = DEV_URL
 // #endif
 
 // #ifdef H5
 // H5环境
-const baseUrl = `http://localhost:${DEV_PORT}`
+const baseUrl = 'http://localhost:3000'
 // #endif
 
 export const config = {
-    baseUrl,           // API请求地址
-    imageBaseUrl: baseUrl,  // 图片地址
+    baseUrl,
+    imageBaseUrl: baseUrl,
     isDev: true
 }
 

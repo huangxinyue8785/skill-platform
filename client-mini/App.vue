@@ -1,7 +1,9 @@
 // App.vue
 <script>
+	
 import { getTIM, setupSDKReady, loginIM, updateMyProfile, waitForSDKReady, logoutIM } from '@/utils/im'
 import { useUserStore } from '@/stores/user'
+
 
 export default {
   onLaunch: async function() {

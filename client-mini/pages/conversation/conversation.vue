@@ -93,8 +93,12 @@ const loadConversations = async () => {
     
     isLoading = true
     try {
-      console.log('开始加载会话列表...')
       const list = await getConversationList()
+      console.log('会话列表详情:', list.map(item => ({
+        id: item.conversationID,
+        unreadCount: item.unreadCount,
+        lastMessage: item.lastMessage?.payload?.text
+      })))
       
       const needUpdate = conversationList.value.length !== list.length ||
         (conversationList.value[0]?.conversationID !== list[0]?.conversationID)
