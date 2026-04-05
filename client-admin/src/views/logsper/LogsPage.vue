@@ -22,7 +22,6 @@ import {
   FolderOpened
 } from '@element-plus/icons-vue'
 
-// 列表数据
 const logList = ref([])
 const loading = ref(false)
 const total = ref(0)
