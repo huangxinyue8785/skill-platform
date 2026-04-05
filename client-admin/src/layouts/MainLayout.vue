@@ -22,7 +22,7 @@ const menuList = [
   { path: '/services', name: '服务审核', icon: Goods },
   { path: '/orders', name: '订单管理', icon: List },
   { path: '/categories', name: '分类管理', icon: Grid },
-  { path: '/logs', name: '操作日志', icon: Document },
+  { path: '/logsper', name: '操作日志', icon: Document },
 ]
 
 if (adminInfo.value?.is_super === 1) {

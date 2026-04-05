@@ -53,7 +53,7 @@ const router = createRouter({
         {
           path: 'logs',
           name: 'logs',
-          component: () => import('@/views/logs/LogsPage.vue'),
+          component: () => import('@/views/logsper/LogsPage.vue'),
           meta: { requiresAuth: true }
         }
       ]
