@@ -51,7 +51,7 @@ const router = createRouter({
           meta: { requiresAuth: true, requiresSuper: true }
         },
         {
-          path: 'logs',
+          path: 'logsper',
           name: 'logs',
           component: () => import('@/views/logsper/LogsPage.vue'),
           meta: { requiresAuth: true }
