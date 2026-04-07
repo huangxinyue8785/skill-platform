@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken')  // 添加这行
 const util = require("node:util");
 const path = require('path')  // 添加这一行
 const fs = require('fs')      // 添加这一行
+const { deleteImageFromCOS } = require('./uploadController');
 
 // 发布服务 接口地址：POST /api/services
 const publishService = async (req, res) => {
@@ -592,18 +593,11 @@ const updateService = async (req, res) => {
                 return !stillExists  // 不在新列表中，需要删除
             })
 
-            // 删除需要删除的图片文件
+            // 删除需要删除的图片文件（从COS中删除）
             for (const imageUrl of imagesToDelete) {
                 try {
-                    const filename = getFilename(imageUrl)
-                    const filePath = path.join(__dirname, '../uploads/services', filename)
-
-                    if (fs.existsSync(filePath)) {
-                        fs.unlinkSync(filePath)
-                        console.log(`删除旧图片：${filename}`)
-                    } else {
-                        console.log(`图片不存在，跳过删除：${filename}`)
-                    }
+                    await deleteImageFromCOS(imageUrl);
+                    console.log(`删除旧图片：${imageUrl}`)
                 } catch (fileErr) {
                     console.error('删除图片失败：', fileErr)
                 }
@@ -710,22 +704,14 @@ const deleteService = async (req, res) => {
             console.log(`删除了 ${oldOrders.length} 条关联的旧订单`)
         }
 
-        // ✅ 3. 删除服务关联的图片文件
+        // ✅ 3. 删除服务关联的图片文件（从COS中删除）
         if (service.images) {
             const imageUrls = service.images.split(',')
             for (const imageUrl of imageUrls) {
-                if (imageUrl && !imageUrl.startsWith('http')) {
+                if (imageUrl) {
                     try {
-                        // 从URL中提取文件名
-                        const filename = path.basename(imageUrl)
-                        // 构建完整的文件路径
-                        const filePath = path.join(__dirname, '../uploads/services', filename)
-
-                        // 检查文件是否存在，存在则删除
-                        if (fs.existsSync(filePath)) {
-                            fs.unlinkSync(filePath)
-                            console.log(`删除服务图片：${filename}`)
-                        }
+                        await deleteImageFromCOS(imageUrl);
+                        console.log(`删除服务图片：${imageUrl}`)
                     } catch (fileErr) {
                         console.error('删除图片失败：', fileErr)
                     }

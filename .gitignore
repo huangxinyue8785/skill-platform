@@ -6,6 +6,7 @@ package-lock.json
 .env
 .env.local
 .env.production
+config/cos.js
 
 # 上传的文件
 uploads/
@@ -28,4 +29,4 @@ client-mini/node_modules/
 
 # PC后台
 client-admin/node_modules/
-client-admin/dist/
+client-admin/dist/"server/config/cos.js" 

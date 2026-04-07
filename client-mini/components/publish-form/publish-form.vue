@@ -461,95 +461,107 @@ const resetForm = () => {
 
 // ==================== 提交表单 ====================
 const handleSubmit = async () => {
-	// 防止重复提交
-	if (submitting.value) {
-		return
-	}
-	
-	if (!validateForm()) return
+    // 防止重复提交
+    if (submitting.value) {
+        return
+    }
+    
+    if (!validateForm()) return
 
-	// 编辑模式下检查是否有修改
-	if (props.isEdit && !hasChanges.value) {
-		uni.showToast({ title: '没有检测到任何修改', icon: 'none' })
-		return
-	}
+    // 编辑模式下检查是否有修改
+    if (props.isEdit && !hasChanges.value) {
+        uni.showToast({ title: '没有检测到任何修改', icon: 'none' })
+        return
+    }
 
-	if (!checkLogin({ action: 'publish' })) return
+    if (!checkLogin({ action: 'publish' })) return
 
-	submitting.value = true
-	uni.showLoading({ title: props.isEdit ? '更新中...' : '发布中...', mask: true })
+    submitting.value = true
+    uni.showLoading({ title: props.isEdit ? '更新中...' : '发布中...', mask: true })
 
-	try {
-		let imagesString = ''
-		let needDeleteOldImages = false
+    try {
+        let imagesString = ''
+        let needDeleteOldImages = false
 
-		const hasNewImages = localImages.value.some(img =>
-			img && (img.startsWith('http://tmp') || img.startsWith('/tmp') || img.includes('tmp'))
-		)
+        // ✅ 修复：正确检测临时文件
+        const hasNewImages = localImages.value.some(img => {
+            if (!img) return false
+            // 小程序临时文件：wxfile:// 或 http://tmp
+            // H5临时文件：blob:http:// 或以 /tmp 开头
+            return img.startsWith('wxfile://') || 
+                   img.startsWith('blob:') || 
+                   img.startsWith('/tmp') ||
+                   img.includes('tmp')
+        })
 
+        if (localImages.value.length > 0 && hasNewImages) {
+            // 筛选出未上传的临时文件
+            const newImages = localImages.value.filter(img => {
+                if (!img) return false
+                return img.startsWith('wxfile://') || 
+                       img.startsWith('blob:') || 
+                       img.startsWith('/tmp') ||
+                       img.includes('tmp')
+            })
+            
+            // 上传新图片到COS
+            const urls = await uploadServiceImages(newImages)
+            
+            // 保留已上传的图片（COS URL）
+            const oldImages = localImages.value.filter(img => {
+                if (!img) return false
+                return img.startsWith('http') && 
+                       !img.startsWith('wxfile://') && 
+                       !img.includes('tmp')
+            })
+            
+            imagesString = [...oldImages, ...urls].join(',')
+            needDeleteOldImages = true
+        } else if (localImages.value.length > 0) {
+            imagesString = localImages.value.join(',')
+        }
 
-		if (localImages.value.length > 0 && hasNewImages) {
-			// 上传图片时不显示 loading，避免冲突
-			const newImages = localImages.value.filter(img =>
-				img && (img.startsWith('http://tmp') || img.startsWith('/tmp') || img.includes('tmp'))
-			)
-			
-			const urls = await uploadServiceImages(newImages)
-			
-			const oldImages = localImages.value.filter(img =>
-				img && !(img.startsWith('http://tmp') || img.startsWith('/tmp') || img.includes('tmp'))
-			)
-			imagesString = [...oldImages, ...urls].join(',')
-			needDeleteOldImages = true
-		} else if (localImages.value.length > 0) {
-			imagesString = localImages.value.join(',')
-		}
+        const submitData = {
+            category_id: categoryId.value,
+            title: title.value.trim(),
+            description: description.value.trim(),
+            price: Number(price.value),
+            contact: contact.value.trim(),
+            school_id: schoolId.value || null,
+            images: imagesString || null,
+            delete_old_images: needDeleteOldImages
+        }
 
+        uni.hideLoading()
 
-		const submitData = {
-			category_id: categoryId.value,
-			title: title.value.trim(),
-			description: description.value.trim(),
-			price: Number(price.value),
-			contact: contact.value.trim(),
-			school_id: schoolId.value || null,
-			images: imagesString || null,
-			delete_old_images: needDeleteOldImages
-		}
+        if (props.isEdit) {
+            await updateService(props.serviceId, submitData)
+            uni.showToast({ title: '更新成功待审核', icon: 'success', duration: 2000 })
+            
+            setTimeout(() => {
+                const pages = getCurrentPages()
+                if (pages.length > 1) {
+                    uni.navigateBack()
+                } else {
+                    uni.reLaunch({ url: '/pages/my-publish/my-publish' })
+                }
+            }, 2000)
+        } else {
+            await publishService(submitData)
+            uni.showToast({ title: '发布成功待审核', icon: 'success', duration: 2000 })
+            
+            setTimeout(() => {
+                resetForm()
+            }, 2000)
+        }
 
-		// 先关闭 loading
-		uni.hideLoading()
-
-		if (props.isEdit) {
-			await updateService(props.serviceId, submitData)
-			uni.showToast({ title: '更新成功待审核', icon: 'success', duration: 2000 })
-			
-			// 延迟 2 秒后返回我的发布页
-			setTimeout(() => {
-				const pages = getCurrentPages()
-				if (pages.length > 1) {
-					uni.navigateBack()
-				} else {
-					uni.reLaunch({ url: '/pages/my-publish/my-publish' })
-				}
-			}, 2000)
-		} else {
-			await publishService(submitData)
-			uni.showToast({ title: '发布成功待审核', icon: 'success', duration: 2000 })
-			
-			// 延迟 2 秒后清空表单
-			setTimeout(() => {
-				resetForm()
-			}, 2000)
-		}
-
-	} catch (err) {
-		console.error(props.isEdit ? '更新失败' : '发布失败', err)
-		uni.hideLoading()
-		uni.showToast({ title: err.message || '操作失败', icon: 'none' })
-	} finally {
-		submitting.value = false
-	}
+    } catch (err) {
+        console.error(props.isEdit ? '更新失败' : '发布失败', err)
+        uni.hideLoading()
+        uni.showToast({ title: err.message || '操作失败', icon: 'none' })
+    } finally {
+        submitting.value = false
+    }
 }
 
 // ==================== 生命周期 ====================

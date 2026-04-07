@@ -6,10 +6,20 @@
       </view>
     </view>
 
-    <view v-if="loading" class="loading">
+    <!-- 未登录状态 -->
+    <view v-if="!isLoggedIn" class="login-prompt">
+      <image src="/static/empty-chat.png" mode="aspectFit"></image>
+      <text class="login-title">暂无聊天记录</text>
+      <text class="login-tip">请先登录后再查看消息</text>
+      <button class="login-btn" @click="goToLogin">去登录</button>
+    </view>
+
+    <!-- 加载中 -->
+    <view v-else-if="loading" class="loading">
       <uni-load-more status="loading"></uni-load-more>
     </view>
 
+    <!-- 会话列表 -->
     <view v-else class="conversation-list">
       <view 
         v-for="item in conversationList" 
@@ -51,6 +61,7 @@ import { getStatusBarHeight } from "@/utils/system.js"
 const conversationList = ref([])
 const loading = ref(true)
 const isReady = ref(false)
+const isLoggedIn = ref(false)  // 新增：登录状态
 const userInfoCache = ref({})
 let updateTimer = null
 let isLoading = false
@@ -134,7 +145,7 @@ const loadConversations = async () => {
 
 // 监听会话更新
 onConversationUpdate(() => {
-  if (isReady.value) {
+  if (isReady.value && isLoggedIn.value) {  // 只有登录状态才监听
     console.log('收到会话更新事件，重新加载')
     loadConversations()
   }
@@ -212,7 +223,7 @@ const formatTime = (timestamp) => {
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
-// ✅ 跳转到聊天页 - 关键修改：点击时立即标记已读
+// 跳转到聊天页
 const goToChat = async (item) => {
   if (item.type === 'C2C') {
     let userID = ''
@@ -227,7 +238,7 @@ const goToChat = async (item) => {
       return
     }
     
-    // ✅ 关键：点击时立即标记该会话为已读，让红点消失
+    // 标记该会话为已读
     try {
       const tim = getTIM()
       await tim.setMessageRead({
@@ -235,7 +246,7 @@ const goToChat = async (item) => {
       })
       console.log(`会话 ${userID} 已标记为已读，红点已消除`)
       
-      // 立即更新本地会话列表的未读数，让红点马上消失
+      // 立即更新本地会话列表的未读数
       const updatedList = conversationList.value.map(conv => {
         if (conv.conversationID === `C2C${userID}`) {
           return { ...conv, unreadCount: 0 }
@@ -260,9 +271,31 @@ const goToChat = async (item) => {
   }
 }
 
+// 去登录页面
+const goToLogin = () => {
+  uni.navigateTo({
+    url: '/pages/login/login'
+  })
+}
+
 // 页面显示时刷新
 onShow(() => {
-  if (isReady.value && !isLoading) {
+  // 每次显示页面时重新检查登录状态
+  const token = uni.getStorageSync('token')
+  const newLoginState = !!token
+  
+  // 如果登录状态发生变化
+  if (isLoggedIn.value !== newLoginState) {
+    isLoggedIn.value = newLoginState
+    if (newLoginState) {
+      // 登录了，加载数据
+      loadConversations()
+    } else {
+      // 未登录，清空数据
+      conversationList.value = []
+      loading.value = false
+    }
+  } else if (isLoggedIn.value && isReady.value && !isLoading) {
     console.log('页面显示，刷新会话列表')
     loadConversations()
   }
@@ -271,9 +304,20 @@ onShow(() => {
 // 初始化
 onMounted(async () => {
   console.log('conversation onMounted')
-  await waitForSDKReady()
-  isReady.value = true
-  await loadConversations()
+  
+  // 检查登录状态
+  const token = uni.getStorageSync('token')
+  isLoggedIn.value = !!token
+  
+  if (isLoggedIn.value) {
+    // 已登录，初始化IM并加载数据
+    await waitForSDKReady()
+    isReady.value = true
+    await loadConversations()
+  } else {
+    // 未登录，直接结束loading状态
+    loading.value = false
+  }
 })
 
 // 组件销毁时清理定时器
@@ -388,6 +432,53 @@ onUnmounted(() => {
     font-size: 24rpx;
     color: #ccc;
     margin-top: 16rpx;
+  }
+}
+
+/* 修改：未登录提示样式 - 让按钮贴合服务详情页风格 */
+.login-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-top: 200rpx;
+  image {
+    width: 200rpx;
+    height: 200rpx;
+    margin-bottom: 30rpx;
+  }
+  .login-title {
+    font-size: 32rpx;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 16rpx;
+  }
+  .login-tip {
+    font-size: 26rpx;
+    color: #999;
+    margin-bottom: 48rpx;
+  }
+  .login-btn {
+    width: 300rpx;
+    height: 90rpx;
+    line-height: 90rpx;
+    background: linear-gradient(135deg, #f2e89f 0%, #d0f3f9 100%);
+    color: #333;
+    border-radius: 45rpx;
+    font-size: 30rpx;
+    font-weight: 500;
+    text-align: center;
+    border: none;
+    outline: none;
+    
+    &::after {
+      border: none;
+    }
+    
+    &:active {
+      transform: scale(0.96);
+      opacity: 0.9;
+    }
   }
 }
 </style>

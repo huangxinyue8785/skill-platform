@@ -3,12 +3,14 @@
  * 注册、登录、获取信息等都写在这里
  */
 const db = require('../config/db');
+const cos = require('../config/cos');  // 确保这一行在函数内部
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { success, error } = require('../utils/response');
 const fs = require('fs')
 const path = require('path');
 const TLSSigAPIv2 = require('tls-sig-api-v2');
+const { deleteImageFromCOS } = require('./uploadController');
 
 // 用户注册 接口地址：POST /api/user/register
 const userRegister = async (req, res) => {
@@ -412,61 +414,60 @@ const updatePassword = async (req,res)=>{
 }
 
 //上传头像 - 接口：POST /api/user/avatar
-const uploadAvatar = async (req,res)=>{
-    try{
-        if(!req.file){
-            return res.json(error('请选择要上传的图片',400))
+const uploadAvatar = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.json(error('请选择要上传的图片', 400));
         }
 
-        const userId = req.user.id
+        const userId = req.user.id;
+        const cos = require('../config/cos');
 
         // 先查询旧头像
         const [users] = await db.query(
             'SELECT avatar FROM users WHERE id = ?',
             [userId]
-        )
-        const oldAvatarUrl = users[0]?.avatar
-        console.log('旧头像URL:', oldAvatarUrl)
+        );
+        const oldAvatarUrl = users[0]?.avatar;
 
-        const avatarPath = `/uploads/avatars/${req.file.filename}`
-        console.log('新头像路径:', avatarPath)
+        // 生成唯一文件名
+        const timestamp = Date.now();
+        const random = Math.round(Math.random() * 1E9);
+        const ext = req.file.originalname.split('.').pop();
+        const filename = `avatar-${timestamp}-${random}.${ext}`;
+        const key = `avatars/${filename}`;
+
+        // 上传到COS
+        const result = await cos.putObject({
+            Bucket: 'campus-skills-1416065980',
+            Region: 'ap-guangzhou',
+            Key: key,
+            Body: req.file.buffer,
+            ACL: 'public-read'
+        });
+
+        const newAvatarUrl = `https://${result.Location}`;
 
         // 更新用户表的头像
         await db.query(
             'UPDATE users SET avatar = ? WHERE id = ?',
-            [avatarPath, userId]
-        )
-        console.log('用户表更新成功')
+            [newAvatarUrl, userId]
+        );
 
-        // ✅ 删除这段代码：不用更新 services 表
-
-        // 删除旧头像（如果有）
+        // 删除旧头像（从COS中删除）
         if (oldAvatarUrl) {
-            try {
-                const oldFilename = path.basename(oldAvatarUrl)
-                const oldFilePath = path.join(__dirname, '../uploads/avatars', oldFilename)
-                console.log('尝试删除旧头像文件:', oldFilePath)
-
-                if (fs.existsSync(oldFilePath)) {
-                    fs.unlinkSync(oldFilePath)
-                    console.log('旧头像删除成功')
-                } else {
-                    console.log('旧头像文件不存在')
-                }
-            } catch (fileErr) {
-                console.error('删除旧头像失败:', fileErr)
-            }
+            await deleteImageFromCOS(oldAvatarUrl);
         }
 
         res.json(success({
-            avatarUrl: avatarPath
-        },'头像上传成功'))
+            avatarUrl: newAvatarUrl
+        }, '头像上传成功'));
 
-    }catch (err){
-        console.error('上传头像失败:', err)
-        res.json(error('服务器错误',500))
+    } catch (err) {
+        console.error('上传头像失败:', err);
+        res.json(error('服务器错误：' + err.message, 500));
     }
-}
+};
 
 // 生成 IM 的 UserSig
 const getUserSig = async (req, res) => {
