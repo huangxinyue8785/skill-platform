@@ -6,10 +6,8 @@ package-lock.json
 .env
 .env.local
 .env.production
-config/cos.js
-config/db.js
 
-# 上传的文件
+# 上传的文�?
 uploads/
 
 # 日志
@@ -24,7 +22,7 @@ logs/
 .DS_Store
 Thumbs.db
 
-# 小程序
+# 小程�?
 client-mini/unpackage/
 client-mini/node_modules/
 
