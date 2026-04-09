@@ -1,10 +1,8 @@
 // App.vue
 <script>
-	
 import { getTIM, setupSDKReady, loginIM, updateMyProfile, waitForSDKReady, logoutIM } from '@/utils/im'
 import { useUserStore } from '@/stores/user'
 import config from '@/utils/config.js'
-
 
 export default {
   onLaunch: async function() {
@@ -18,7 +16,18 @@ export default {
     await this.autoLogin()
   },
   methods: {
-    // App.vue 的 autoLogin 方法
+    // 清除 IM 会话缓存
+    async clearIMConversationCache() {
+      try {
+        const tim = getTIM()
+        // 强制获取最新会话列表，清除缓存
+        await tim.getConversationList({ nextReqMessageID: '' })
+        console.log('IM 会话缓存已清除')
+      } catch (err) {
+        console.log('清除会话缓存失败:', err)
+      }
+    },
+    
     async autoLogin() {
       const token = uni.getStorageSync('token')
       const userInfo = uni.getStorageSync('userInfo')
@@ -34,19 +43,18 @@ export default {
       console.log('找到登录信息，尝试自动登录 IM，用户:', userInfo.nickname)
       
       try {
-        // ✅ 获取当前 IM 登录的用户
+        // 获取当前 IM 登录的用户
         const tim = getTIM()
         let currentIMUser = null
         
         try {
-          // ✅ 使用 tim._userID 获取（修正后的方式）
           currentIMUser = tim._userID || null
           console.log('当前 IM 登录用户:', currentIMUser)
         } catch (err) {
           console.log('获取当前 IM 用户失败，可能未登录', err)
         }
         
-        // ✅ 如果 IM 已经登录且是不同用户，先退出
+        // 如果 IM 已经登录且是不同用户，先退出
         if (currentIMUser && String(currentIMUser) !== String(userInfo.id)) {
           console.log(`IM 当前登录用户 ${currentIMUser} 与本地用户 ${userInfo.id} 不一致，先退出 IM`)
           await logoutIM()
@@ -55,7 +63,7 @@ export default {
         
         // 获取 UserSig
         const imRes = await uni.request({
-           url: `${config.serverUrl}/api/user/im/usersig`,  // 👈 改这里
+          url: `${config.serverUrl}/api/user/im/usersig`,
           method: 'GET',
           header: { 'Authorization': `Bearer ${token}` }
         })
@@ -73,10 +81,13 @@ export default {
           
           await waitForSDKReady()
           
+          // ✅ 登录成功后清除会话缓存，确保获取最新未读数
+          await this.clearIMConversationCache()
+          
           // 同步用户资料
           const avatarUrl = userInfo.avatar 
-            ? `${config.serverUrl}${userInfo.avatar}`  // 👈 改这里
-              : ''
+            ? (userInfo.avatar.startsWith('http') ? userInfo.avatar : `${config.serverUrl}${userInfo.avatar}`)
+            : ''
           
           await updateMyProfile(
             userInfo.nickname || '用户',

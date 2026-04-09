@@ -1,8 +1,7 @@
 // utils/im.js
 import TIM from 'tim-wx-sdk'
 import TIMUploadPlugin from 'tim-upload-plugin'
-import config from './config.js' 
-
+import config from './config.js'
 
 let tim = null
 let isSDKReady = false
@@ -21,7 +20,6 @@ export const getTIM = () => {
       console.log('✅ SDK 已就绪')
       isSDKReady = true
       try {
-        // ✅ 正确获取当前登录用户的方法
         currentLoginUser = tim._userID || null
         console.log('当前登录用户:', currentLoginUser)
       } catch (err) {
@@ -36,6 +34,22 @@ export const getTIM = () => {
       console.log('⚠️ SDK 未就绪')
       isSDKReady = false
       currentLoginUser = null
+    })
+    
+    // 监听被踢下线
+    tim.on(TIM.EVENT.KICKED_OUT, (event) => {
+      console.log('被踢下线', event)
+      isSDKReady = false
+      currentLoginUser = null
+      uni.showToast({
+        title: '账号已在其他设备登录',
+        icon: 'none'
+      })
+      setTimeout(() => {
+        uni.reLaunch({
+          url: '/pages/login/login'
+        })
+      }, 1500)
     })
   }
   return tim
@@ -59,15 +73,13 @@ export const setupSDKReady = () => {
   console.log('setupSDKReady 调用，SDK 监听已就绪')
 }
 
-// ✅ 修正：获取当前登录用户 - 使用内部属性
+// 获取当前登录用户
 export const getCurrentLoginUser = () => {
   try {
     const tim = getTIM()
-    // 腾讯云 IM SDK 中，登录后用户ID存储在 _userID 属性中
     if (tim._userID) {
       return tim._userID
     }
-    // 如果没有，返回 currentLoginUser 变量
     return currentLoginUser
   } catch (err) {
     console.error('获取当前登录用户失败', err)
@@ -75,11 +87,10 @@ export const getCurrentLoginUser = () => {
   }
 }
 
-// ✅ 修正：检查是否已登录
+// 检查是否已登录
 export const isIMLoggedIn = () => {
   try {
     const tim = getTIM()
-    // 通过检查是否有 userID 来判断是否登录
     return !!tim._userID
   } catch (err) {
     console.error('获取登录状态失败:', err)
@@ -87,12 +98,11 @@ export const isIMLoggedIn = () => {
   }
 }
 
-// ✅ 修正：登录 IM
+// 登录 IM
 export const loginIM = async (userID, userSig) => {
   const tim = getTIM()
   
   try {
-    // 使用内部属性检查当前登录用户
     const currentUser = tim._userID
     if (currentUser) {
       if (String(currentUser) !== String(userID)) {
@@ -114,7 +124,6 @@ export const loginIM = async (userID, userSig) => {
     console.log('开始登录 IM, userID:', userID)
     const result = await tim.login({ userID, userSig })
     console.log('IM 登录成功', result)
-    // 登录成功后，userID 会存储在 tim._userID 中
     currentLoginUser = userID
     return result
   } catch (err) {
@@ -123,17 +132,16 @@ export const loginIM = async (userID, userSig) => {
   }
 }
 
-// utils/im.js
+// 更新用户资料
 export const updateMyProfile = async (nick, avatar) => {
   const tim = getTIM()
   
-  // ✅ 确保头像 URL 是完整的
   let fullAvatar = ''
   if (avatar) {
     if (avatar.startsWith('http')) {
       fullAvatar = avatar
     } else if (avatar.startsWith('/uploads')) {
-      fullAvatar = `${config.serverUrl}${avatar}` 
+      fullAvatar = `${config.serverUrl}${avatar}`
     } else {
       fullAvatar = avatar
     }
@@ -150,8 +158,6 @@ export const updateMyProfile = async (nick, avatar) => {
     return result
   } catch (err) {
     console.error('更新用户资料失败', err)
-    // ✅ 如果失败，重试一次
-    console.log('重试更新用户资料...')
     setTimeout(async () => {
       try {
         await tim.updateMyProfile({ 
@@ -167,21 +173,51 @@ export const updateMyProfile = async (nick, avatar) => {
   }
 }
 
-// 获取会话列表
-export const getConversationList = async () => {
+// 获取会话列表 - 添加强制刷新参数
+export const getConversationList = async (forceRefresh = false) => {
   const tim = getTIM()
-  const res = await tim.getConversationList()
-  return res.data.conversationList.filter(item => item.type === 'C2C')
+  try {
+    // forceRefresh 为 true 时，传入空字符串强制从服务器拉取
+    const options = forceRefresh ? { nextReqMessageID: '' } : undefined
+    const res = await tim.getConversationList(options)
+    const list = res.data.conversationList || []
+    
+    console.log(`getConversationList 返回 ${list.length} 个会话:`, 
+      list.map(c => ({ id: c.conversationID, unread: c.unreadCount })))
+    
+    return list
+  } catch (err) {
+    console.error('获取会话列表失败', err)
+    return []
+  }
+}
+
+// 获取单个会话信息
+export const getConversation = async (conversationID) => {
+  const tim = getTIM()
+  try {
+    const res = await tim.getConversationProfile(conversationID)
+    return res.data.conversation
+  } catch (err) {
+    console.error('获取会话失败', err)
+    return null
+  }
 }
 
 // 获取消息列表
 export const getMessageList = async (userID, count = 15) => {
   const tim = getTIM()
-  const res = await tim.getMessageList({
-    conversationID: `C2C${userID}`,
-    count
-  })
-  return res.data.messageList.sort((a, b) => a.time - b.time)
+  try {
+    const res = await tim.getMessageList({
+      conversationID: `C2C${userID}`,
+      count
+    })
+    const messages = res.data.messageList || []
+    return messages.sort((a, b) => a.time - b.time)
+  } catch (err) {
+    console.error('获取消息列表失败', err)
+    return []
+  }
 }
 
 // 发送文本消息
@@ -192,12 +228,14 @@ export const sendTextMessage = async (toUserID, text) => {
     conversationType: TIM.TYPES.CONV_C2C,
     payload: { text }
   })
-  await tim.sendMessage(message)
+  const res = await tim.sendMessage(message)
   return {
-    ID: `${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
+    ID: res.data.message.ID,
     flow: 'out',
+    type: 'TIMTextElem',
     payload: { text },
-    time: Math.floor(Date.now() / 1000)
+    time: Math.floor(Date.now() / 1000),
+    conversationID: `C2C${toUserID}`
   }
 }
 
@@ -211,6 +249,12 @@ export const onMessageReceived = (callback) => {
 export const onConversationUpdate = (callback) => {
   const tim = getTIM()
   tim.on(TIM.EVENT.CONVERSATION_LIST_UPDATED, callback)
+}
+
+// 监听未读总数变化
+export const onTotalUnreadCountUpdate = (callback) => {
+  const tim = getTIM()
+  tim.on(TIM.EVENT.TOTAL_UNREAD_MESSAGE_COUNT_UPDATED, callback)
 }
 
 // 退出登录
@@ -230,3 +274,6 @@ export const logoutIM = async () => {
   }
   readyCallbacks = []
 }
+
+// 导出 TIM 常量供外部使用
+export const TIM_TYPE = TIM.TYPES

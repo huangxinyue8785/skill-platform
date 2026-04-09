@@ -35,7 +35,8 @@
           </view>
           <view class="bottom">
             <text class="last-message">{{ getLastMessage(item) }}</text>
-            <view v-if="item.unreadCount > 0" class="badge">
+            <!-- 红点显示 - 确保能正确显示 -->
+            <view v-if="item.unreadCount && item.unreadCount > 0" class="badge">
               {{ item.unreadCount > 99 ? '99+' : item.unreadCount }}
             </view>
           </view>
@@ -57,15 +58,39 @@ import { onShow } from '@dcloudio/uni-app'
 import { getConversationList, onConversationUpdate, waitForSDKReady, getTIM } from '@/utils/im'
 import { getImageUrl } from '@/utils/request'
 import { getStatusBarHeight } from "@/utils/system.js"
-import config from '@/utils/config.js' 
+import config from '@/utils/config.js'
 
 const conversationList = ref([])
 const loading = ref(true)
 const isReady = ref(false)
-const isLoggedIn = ref(false)  // 新增：登录状态
+const isLoggedIn = ref(false)
 const userInfoCache = ref({})
 let updateTimer = null
 let isLoading = false
+let pollTimer = null
+
+// 防抖相关变量
+let updateDebounceTimer = null
+const UPDATE_DEBOUNCE_DELAY = 300
+
+// 更新 TabBar 未读角标
+const updateTabBarUnreadBadge = () => {
+  try {
+    const totalUnread = conversationList.value.reduce((sum, item) => sum + (item.unreadCount || 0), 0)
+    console.log('更新 TabBar 角标，总未读数:', totalUnread)
+    
+    if (totalUnread > 0) {
+      uni.setTabBarBadge({
+        index: 2,
+        text: totalUnread > 99 ? '99+' : String(totalUnread)
+      }).catch(() => {})
+    } else {
+      uni.removeTabBarBadge({
+        index: 2
+      }).catch(() => {})
+    }
+  } catch (err) {}
+}
 
 // 从后端获取用户信息
 const fetchUserInfo = async (userID) => {
@@ -90,7 +115,7 @@ const fetchUserInfo = async (userID) => {
 }
 
 // 加载会话列表
-const loadConversations = async () => {
+const loadConversations = async (forceRefresh = false) => {
   if (isLoading) {
     console.log('正在加载中，跳过')
     return
@@ -100,57 +125,182 @@ const loadConversations = async () => {
     clearTimeout(updateTimer)
   }
   
-  updateTimer = setTimeout(async () => {
-    if (isLoading) return
-    
+  const doLoad = async () => {
     isLoading = true
     try {
-      const list = await getConversationList()
-      console.log('会话列表详情:', list.map(item => ({
-        id: item.conversationID,
-        unreadCount: item.unreadCount,
-        lastMessage: item.lastMessage?.payload?.text
-      })))
+      const list = await getConversationList(forceRefresh)
       
-      const needUpdate = conversationList.value.length !== list.length ||
-        (conversationList.value[0]?.conversationID !== list[0]?.conversationID)
+      console.log('========== 会话列表详情 ==========')
+      console.log('会话数量:', list.length)
       
-      if (needUpdate) {
-        conversationList.value = list
-        
-        const userIds = list.map(item => {
-          if (item.type === 'C2C' && item.conversationID?.startsWith('C2C')) {
-            return item.conversationID.substring(3)
-          }
-          return null
-        }).filter(id => id && !userInfoCache.value[id])
-        
-        if (userIds.length > 0) {
-          await Promise.all(userIds.map(id => fetchUserInfo(id)))
-        }
-        
-        console.log('会话列表加载成功，共', conversationList.value.length, '条')
+      list.forEach((item, index) => {
+        console.log(`${index + 1}. 会话ID: ${item.conversationID}`)
+        console.log(`   unreadCount: ${item.unreadCount}`)
+        console.log(`   类型: ${item.type}`)
+      })
+      
+      const totalUnread = list.reduce((sum, item) => sum + (item.unreadCount || 0), 0)
+      console.log(`总未读消息数: ${totalUnread}`)
+      
+      conversationList.value = [...list]
+      
+      const userIds = list
+        .filter(item => item.type === 'C2C' && item.conversationID?.startsWith('C2C'))
+        .map(item => item.conversationID.substring(3))
+        .filter(id => id && !userInfoCache.value[id])
+      
+      if (userIds.length > 0) {
+        await Promise.all(userIds.map(id => fetchUserInfo(id)))
       }
       
       if (loading.value) {
         loading.value = false
       }
+      
+      console.log('会话列表加载成功，共', conversationList.value.length, '条')
+      
+      updateTabBarUnreadBadge()
+      
     } catch (err) {
       console.error('加载会话失败', err)
       loading.value = false
     } finally {
       isLoading = false
+      updateTimer = null
     }
-  }, 100)
+  }
+  
+  if (forceRefresh) {
+    await doLoad()
+  } else {
+    updateTimer = setTimeout(doLoad, 100)
+  }
 }
 
-// 监听会话更新
-onConversationUpdate(() => {
-  if (isReady.value && isLoggedIn.value) {  // 只有登录状态才监听
-    console.log('收到会话更新事件，重新加载')
-    loadConversations()
+// 监听会话更新 - 立即更新未读数
+const handleConversationUpdate = async (event) => {
+  console.log('收到会话更新事件', event?.data?.map(c => ({ 
+    id: c.conversationID, 
+    unread: c.unreadCount 
+  })))
+  
+  if (!isReady.value || !isLoggedIn.value) {
+    console.log('SDK未就绪或未登录，跳过更新')
+    return
   }
-})
+  
+  // 立即更新本地会话列表中的未读数
+  if (event?.data && event.data.length > 0) {
+    const newList = [...conversationList.value]
+    let hasChange = false
+    
+    for (const updatedConv of event.data) {
+      const index = newList.findIndex(item => item.conversationID === updatedConv.conversationID)
+      
+      if (index !== -1) {
+        if (newList[index].unreadCount !== updatedConv.unreadCount) {
+          console.log(`✅ 立即更新会话 ${updatedConv.conversationID} 未读数: ${newList[index].unreadCount} -> ${updatedConv.unreadCount}`)
+          newList[index] = { 
+            ...newList[index], 
+            unreadCount: updatedConv.unreadCount,
+            lastMessage: updatedConv.lastMessage || newList[index].lastMessage
+          }
+          hasChange = true
+        }
+      } else if (updatedConv.conversationID) {
+        console.log(`✅ 新增会话: ${updatedConv.conversationID}, 未读数: ${updatedConv.unreadCount}`)
+        newList.unshift(updatedConv)
+        hasChange = true
+      }
+    }
+    
+    if (hasChange) {
+      conversationList.value = newList
+      updateTabBarUnreadBadge()
+    }
+  }
+  
+  // 清除之前的防抖定时器
+  if (updateDebounceTimer) {
+    clearTimeout(updateDebounceTimer)
+  }
+  
+  // 延迟后完整刷新，确保数据一致性
+  updateDebounceTimer = setTimeout(async () => {
+    console.log('执行完整会话列表刷新')
+    await loadConversations(true)
+    updateDebounceTimer = null
+  }, UPDATE_DEBOUNCE_DELAY)
+}
+
+// 监听总未读数变化（使用 SDK 事件）
+const setupTotalUnreadListener = () => {
+  try {
+    const tim = getTIM()
+    if (tim && tim.on) {
+      // 直接使用字符串事件名，避免引用 TIM 常量
+      tim.on('TOTAL_UNREAD_MESSAGE_COUNT_UPDATED', (event) => {
+        console.log('📢 收到总未读数变化事件:', event.data)
+        if (isReady.value && isLoggedIn.value) {
+          console.log('总未读数变化，立即刷新会话列表')
+          loadConversations(true)
+        }
+      })
+    }
+  } catch (err) {
+    console.log('设置总未读数监听失败:', err)
+  }
+}
+
+// 轮询检查未读数（兜底方案）
+const startPolling = () => {
+  if (pollTimer) clearInterval(pollTimer)
+  
+  pollTimer = setInterval(async () => {
+    if (!isReady.value || !isLoggedIn.value) return
+    
+    // 获取当前页面栈，如果在聊天页面不轮询
+    const pages = getCurrentPages()
+    const currentPage = pages[pages.length - 1]
+    if (currentPage?.route === 'pages/chat/chat') return
+    
+    try {
+      const list = await getConversationList(true)
+      let hasChange = false
+      
+      // 比较未读数是否有变化
+      for (const newConv of list) {
+        const oldConv = conversationList.value.find(c => c.conversationID === newConv.conversationID)
+        if (oldConv && oldConv.unreadCount !== newConv.unreadCount) {
+          console.log(`轮询检测到变化: ${newConv.conversationID} ${oldConv.unreadCount} -> ${newConv.unreadCount}`)
+          hasChange = true
+          break
+        }
+      }
+      
+      if (hasChange || list.length !== conversationList.value.length) {
+        console.log('轮询检测到变化，刷新会话列表')
+        conversationList.value = [...list]
+        updateTabBarUnreadBadge()
+      }
+    } catch (err) {
+      console.log('轮询检查失败', err)
+    }
+  }, 3000)
+}
+
+const stopPolling = () => {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+// 注册事件监听
+onConversationUpdate(handleConversationUpdate)
+
+// 设置总未读数监听
+setupTotalUnreadListener()
 
 // 获取对方昵称
 const getDisplayName = (item) => {
@@ -165,7 +315,7 @@ const getDisplayName = (item) => {
     if (userID && userInfoCache.value[userID]) {
       return userInfoCache.value[userID].nickname
     }
-    return `用户${userID}`
+    return `用户${userID || '未知'}`
   }
   return item.groupProfile?.name || '群聊'
 }
@@ -239,32 +389,24 @@ const goToChat = async (item) => {
       return
     }
     
-    // 标记该会话为已读
-    try {
-      const tim = getTIM()
-      await tim.setMessageRead({
-        conversationID: `C2C${userID}`
-      })
-      console.log(`会话 ${userID} 已标记为已读，红点已消除`)
-      
-      // 立即更新本地会话列表的未读数
-      const updatedList = conversationList.value.map(conv => {
-        if (conv.conversationID === `C2C${userID}`) {
+    // 立即清除本地该会话的未读数（优化体验）
+    const currentUnread = item.unreadCount || 0
+    if (currentUnread > 0) {
+      const newList = conversationList.value.map(conv => {
+        if (conv.conversationID === item.conversationID) {
           return { ...conv, unreadCount: 0 }
         }
         return conv
       })
-      conversationList.value = updatedList
-      
-    } catch (err) {
-      console.error('标记已读失败', err)
+      conversationList.value = newList
+      updateTabBarUnreadBadge()
     }
     
     const userInfo = userInfoCache.value[userID]
     const userName = userInfo?.nickname || `用户${userID}`
     const userAvatar = userInfo?.avatar || ''
     
-    console.log('跳转到聊天，用户ID:', userID, '用户名:', userName)
+    console.log('跳转到聊天，用户ID:', userID, '用户名:', userName, '清除未读数:', currentUnread)
     
     uni.navigateTo({
       url: `/pages/chat/chat?userId=${userID}&nickname=${encodeURIComponent(userName)}&avatar=${encodeURIComponent(userAvatar)}`
@@ -280,25 +422,27 @@ const goToLogin = () => {
 }
 
 // 页面显示时刷新
-onShow(() => {
-  // 每次显示页面时重新检查登录状态
+onShow(async () => {
+  console.log('页面显示 onShow')
   const token = uni.getStorageSync('token')
   const newLoginState = !!token
   
-  // 如果登录状态发生变化
   if (isLoggedIn.value !== newLoginState) {
     isLoggedIn.value = newLoginState
     if (newLoginState) {
-      // 登录了，加载数据
-      loadConversations()
+      await waitForSDKReady()
+      isReady.value = true
+      await loadConversations(true)
     } else {
-      // 未登录，清空数据
       conversationList.value = []
       loading.value = false
+      try {
+        uni.removeTabBarBadge({ index: 2 })
+      } catch (e) {}
     }
   } else if (isLoggedIn.value && isReady.value && !isLoading) {
     console.log('页面显示，刷新会话列表')
-    loadConversations()
+    await loadConversations(true)
   }
 })
 
@@ -306,26 +450,50 @@ onShow(() => {
 onMounted(async () => {
   console.log('conversation onMounted')
   
-  // 检查登录状态
+  // 监听 chat 页面发送的已读事件
+  uni.$on('conversationRead', ({ conversationID }) => {
+    console.log('收到已读事件:', conversationID)
+    // 更新本地会话列表的未读数
+    const newList = conversationList.value.map(conv => {
+      if (conv.conversationID === conversationID) {
+        return { ...conv, unreadCount: 0 }
+      }
+      return conv
+    })
+    conversationList.value = newList
+    updateTabBarUnreadBadge()
+    
+    // 可选：重新拉取一次确保数据同步
+    setTimeout(() => {
+      loadConversations(true)
+    }, 500)
+  })
+  
   const token = uni.getStorageSync('token')
   isLoggedIn.value = !!token
   
   if (isLoggedIn.value) {
-    // 已登录，初始化IM并加载数据
     await waitForSDKReady()
     isReady.value = true
-    await loadConversations()
+    await loadConversations(true)
+    startPolling()
   } else {
-    // 未登录，直接结束loading状态
     loading.value = false
   }
 })
 
 // 组件销毁时清理定时器
 onUnmounted(() => {
+  // 移除事件监听
+  uni.$off('conversationRead')
+  
   if (updateTimer) {
     clearTimeout(updateTimer)
   }
+  if (updateDebounceTimer) {
+    clearTimeout(updateDebounceTimer)
+  }
+  stopPolling()
   console.log('conversation onUnmounted')
 })
 </script>
@@ -436,7 +604,6 @@ onUnmounted(() => {
   }
 }
 
-/* 修改：未登录提示样式 - 让按钮贴合服务详情页风格 */
 .login-prompt {
   display: flex;
   flex-direction: column;
