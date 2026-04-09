@@ -166,7 +166,6 @@ const handleSubmit = async () => {
 			requirements: requirements.value.trim() || undefined,
 			service_time: serviceTime.value || undefined
 		}
-		console.log('创建订单参数：', orderData)
 		const order = await createOrder(orderData)
 		uni.hideLoading()
 		uni.navigateTo({

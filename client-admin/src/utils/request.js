@@ -2,7 +2,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
 // 根据环境自动切换 API 地址
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+const baseURL = 'http://114.132.89.130:3000/api'
 
 const request = axios.create({
   baseURL,
@@ -78,7 +78,7 @@ export const getImageUrl = (path) => {
   if (!path) return ''
   if (path.startsWith('http')) return path
   // 后端地址
-  const baseURL = 'http://localhost:3000'
+  const baseURL = 'http://114.132.89.130:3000'
   return baseURL + path
 }
 

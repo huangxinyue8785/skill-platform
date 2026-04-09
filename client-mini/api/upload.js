@@ -1,5 +1,6 @@
 // api/upload.js
 import { request } from '@/utils/request.js'
+import config from '@/utils/config.js'
 
 // 上传头像
 // upload.js - uploadAvatar 函数
@@ -7,7 +8,7 @@ import { request } from '@/utils/request.js'
 export const uploadAvatar = (filePath) => {
   return new Promise((resolve, reject) => {
     uni.uploadFile({
-      url: 'http://10.64.29.106:3000/api/user/avatar',
+      url: `${config.serverUrl}/api/user/avatar`,
       filePath: filePath,
       name: 'avatar',
       header: {
@@ -52,7 +53,7 @@ export const uploadServiceImages = (filePaths) => {
             return new Promise((res, rej) => {
                 uni.uploadFile({
                     // 使用批量上传接口
-                    url: 'http://10.64.29.106:3000/api/upload/services',  // ← 注意是 services 复数
+                    url: `${config.serverUrl}/api/upload/services`, 
                     filePath: filePath,
                     name: 'image',  // ← 批量上传接口也用 image
                     header: {

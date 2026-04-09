@@ -46,6 +46,7 @@
 		getImageUrl
 	} from '@/utils/request'
 	import { getMessageList, sendTextMessage, onMessageReceived, waitForSDKReady, getTIM } from '@/utils/im'
+	import config from '@/utils/config.js'  
 
 	const userStore = useUserStore()
 
@@ -130,7 +131,7 @@
 		try {
 			const token = uni.getStorageSync('token')
 			const res = await uni.request({
-				url: `http://10.64.29.106:3000/api/user/info/${targetUserId.value}`,
+				url: `${config.serverUrl}/api/user/info/${targetUserId.value}`,
 				method: 'GET',
 				header: {
 					'Authorization': `Bearer ${token}`

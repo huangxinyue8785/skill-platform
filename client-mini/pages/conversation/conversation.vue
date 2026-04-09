@@ -57,6 +57,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { getConversationList, onConversationUpdate, waitForSDKReady, getTIM } from '@/utils/im'
 import { getImageUrl } from '@/utils/request'
 import { getStatusBarHeight } from "@/utils/system.js"
+import config from '@/utils/config.js' 
 
 const conversationList = ref([])
 const loading = ref(true)
@@ -73,7 +74,7 @@ const fetchUserInfo = async (userID) => {
   try {
     const token = uni.getStorageSync('token')
     const res = await uni.request({
-      url: `http://10.64.29.106:3000/api/user/info/${userID}`,
+      url: `${config.serverUrl}/api/user/info/${userID}`,
       method: 'GET',
       header: { 'Authorization': `Bearer ${token}` }
     })

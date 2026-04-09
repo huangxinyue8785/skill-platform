@@ -1,6 +1,7 @@
 // utils/im.js
 import TIM from 'tim-wx-sdk'
 import TIMUploadPlugin from 'tim-upload-plugin'
+import config from './config.js' 
 
 
 let tim = null
@@ -132,7 +133,7 @@ export const updateMyProfile = async (nick, avatar) => {
     if (avatar.startsWith('http')) {
       fullAvatar = avatar
     } else if (avatar.startsWith('/uploads')) {
-      fullAvatar = `http://10.64.29.106:3000${avatar}`
+      fullAvatar = `${config.serverUrl}${avatar}` 
     } else {
       fullAvatar = avatar
     }

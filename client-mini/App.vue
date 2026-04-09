@@ -3,6 +3,7 @@
 	
 import { getTIM, setupSDKReady, loginIM, updateMyProfile, waitForSDKReady, logoutIM } from '@/utils/im'
 import { useUserStore } from '@/stores/user'
+import config from '@/utils/config.js'
 
 
 export default {
@@ -54,7 +55,7 @@ export default {
         
         // 获取 UserSig
         const imRes = await uni.request({
-          url: 'http://10.64.29.106:3000/api/user/im/usersig',
+           url: `${config.serverUrl}/api/user/im/usersig`,  // 👈 改这里
           method: 'GET',
           header: { 'Authorization': `Bearer ${token}` }
         })
@@ -74,8 +75,8 @@ export default {
           
           // 同步用户资料
           const avatarUrl = userInfo.avatar 
-            ? `http://10.64.29.106:3000${userInfo.avatar}`
-            : ''
+            ? `${config.serverUrl}${userInfo.avatar}`  // 👈 改这里
+              : ''
           
           await updateMyProfile(
             userInfo.nickname || '用户',

@@ -66,6 +66,7 @@
 	import {
 		useUserStore
 	} from '@/stores/user.js'
+	import config from '@/utils/config.js' 
 	import {
 		loginIM,
 		updateMyProfile,
@@ -148,7 +149,7 @@
 	
 	    // 4. 获取 UserSig
 	    const imRes = await uni.request({
-	      url: 'http://10.64.29.106:3000/api/user/im/usersig',
+	      url: `${config.serverUrl}/api/user/im/usersig`,
 	      method: 'GET',
 	      header: {
 	        'Authorization': `Bearer ${res.token}`
@@ -166,8 +167,7 @@
 	
 	      // ✅ 7. 关键：立即同步用户资料（包括头像）
 	      const avatarUrl = res.user.avatar ?
-	        `http://10.64.29.106:3000${res.user.avatar}` :
-	        ''
+	        `${config.serverUrl}${res.user.avatar}` : '' 
 	      
 	      console.log('正在同步用户资料，头像URL:', avatarUrl)
 	      
