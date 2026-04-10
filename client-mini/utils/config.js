@@ -1,7 +1,7 @@
 // utils/config.js
 
 // 服务器基础地址
-const SERVER_URL = 'http://114.132.89.130:3000'
+const SERVER_URL = 'https://campusskill.top'
 
 // #ifdef MP-WEIXIN
 // 小程序环境

@@ -65,326 +65,259 @@
 </template>
 
 <script setup>
-	import {
-		ref,
-		onMounted,
-		computed,
-		nextTick
-	} from 'vue'
-	import {
-		onLoad,
-		onUnload,
-		onPullDownRefresh,
-		onReachBottom
-	} from '@dcloudio/uni-app'
-	import {
-		getParentCategories
-	} from '@/api/category.js'
-	import {
-		getServiceList
-	} from '@/api/service.js'
-	import ServiceCard from '@/components/service-card/service-card.vue'
-	import { getImageUrl } from '@/utils/request.js'  // 加上这行
+import {
+    ref,
+    onMounted,
+    computed,
+    nextTick
+} from 'vue'
+import {
+    onLoad,
+    onUnload,
+    onPullDownRefresh,
+    onReachBottom
+} from '@dcloudio/uni-app'
+import {
+    getParentCategories
+} from '@/api/category.js'
+import {
+    getServiceList
+} from '@/api/service.js'
+import ServiceCard from '@/components/service-card/service-card.vue'
 
-	const currentSchool = ref('全部学校')
-	const currentSchoolId = ref(null)
-	const categoryList = ref([])
-	const serviceList = ref([])
-	const loading = ref(false)
-	const loadMoreStatus = ref('more')
-	const page = ref(1)
-	const pageSize = 10
-	const total = ref(0)
+const currentSchool = ref('全部学校')
+const currentSchoolId = ref(null)
+const categoryList = ref([])
+const serviceList = ref([])
+const loading = ref(false)
+const loadMoreStatus = ref('more')
+const page = ref(1)
+const pageSize = 10
+const total = ref(0)
 
-	// 在 script setup 里加这些
-	const campusSayings = [
-		'今天没课，赚点生活费💰',
-		'月底了，接个单回回血',
-		'技能换奶茶🍵',
-		'搞钱要紧!',
-		'同学，接单吗?',
-		'赚杯奶茶钱...',
-		'今日宜搞钱'
-	]
+const campusSayings = [
+    '今天没课，赚点生活费💰',
+    '月底了，接个单回回血',
+    '技能换奶茶🍵',
+    '搞钱要紧!',
+    '同学，接单吗?',
+    '赚杯奶茶钱...',
+    '今日宜搞钱'
+]
 
-	const randomSaying = ref('')
+const randomSaying = ref('')
 
-	// 随机获取一条
-	const getRandomSaying = () => {
-		const randomIndex = Math.floor(Math.random() * campusSayings.length)
-		randomSaying.value = campusSayings[randomIndex]
-	}
+const getRandomSaying = () => {
+    const randomIndex = Math.floor(Math.random() * campusSayings.length)
+    randomSaying.value = campusSayings[randomIndex]
+}
 
-	// 在 onLoad 里调用一次
-	onLoad(() => {
-		setupHomeSchoolListener()
-		getRandomSaying() // 加这一行就行
-		
-		 // 👇 添加监听头像更新事件
-		    uni.$on('avatarUpdated', () => {
-		        // 刷新服务列表（重置到第一页）
-		        page.value = 1
-		        loadServices(true)
-		    })
-	})
+// 分类分页相关
+const currentPage = ref(0)
+const itemsPerPage = 12
+const isScrolling = ref(false)
+const pageWidth = ref(750)
 
-	// 点击事件（如果不想要点击，直接删掉 @click 就行）
-	const goToCampusHot = () => {
-		uni.showToast({
-			title: '开发中',
-			icon: 'none'
-		})
-	}
+const bgColors = [
+    '#FFE4E1', '#E0F7FA', '#E8F5E9', '#FFF3E0',
+    '#F3E5F5', '#FFEBEE', '#E0F2F1', '#E1F5FE',
+    '#FFE0B2', '#D7CCC8', '#F8BBD9', '#C8E6C9'
+]
 
-	// 分类分页相关
-	const currentPage = ref(0) // 当前页码（从0开始）
-	const itemsPerPage = 12 // 每页12个分类
-	const isScrolling = ref(false) // 是否正在滚动
-	const pageWidth = ref(750) // 默认页面宽度（rpx）
+const paginatedCategories = computed(() => {
+    const pages = []
+    for (let i = 0; i < categoryList.value.length; i += itemsPerPage) {
+        pages.push(categoryList.value.slice(i, i + itemsPerPage))
+    }
+    return pages
+})
 
-	// 背景色数组（12种颜色）
-	const bgColors = [
-		'#FFE4E1', '#E0F7FA', '#E8F5E9', '#FFF3E0',
-		'#F3E5F5', '#FFEBEE', '#E0F2F1', '#E1F5FE',
-		'#FFE0B2', '#D7CCC8', '#F8BBD9', '#C8E6C9'
-	]
+const totalPages = computed(() => Math.ceil(categoryList.value.length / itemsPerPage))
 
-	// 计算分页后的分类数组
-	const paginatedCategories = computed(() => {
-		const pages = []
-		for (let i = 0; i < categoryList.value.length; i += itemsPerPage) {
-			pages.push(categoryList.value.slice(i, i + itemsPerPage))
-		}
-		return pages
-	})
+const getFirstChar = (name) => {
+    if (!name) return '类'
+    if (/[\u4e00-\u9fa5]/.test(name)) {
+        return name.charAt(0)
+    }
+    return name.substring(0, 2).toUpperCase()
+}
 
-	// 总页数
-	const totalPages = computed(() => Math.ceil(categoryList.value.length / itemsPerPage))
+const loadCategories = async () => {
+    try {
+        const res = await getParentCategories()
+        categoryList.value = res.map((item, index) => ({
+            id: item.id,
+            name: item.name,
+            firstChar: getFirstChar(item.name),
+            bgColor: bgColors[index % bgColors.length]
+        }))
+        currentPage.value = 0
+        nextTick(() => {
+            getScrollViewWidth()
+        })
+    } catch (err) {
+        console.error('加载分类失败', err)
+    }
+}
 
-	// 获取分类名称的第一个字
-	const getFirstChar = (name) => {
-		if (!name) return '类'
-		if (/[\u4e00-\u9fa5]/.test(name)) {
-			return name.charAt(0)
-		}
-		return name.substring(0, 2).toUpperCase()
-	}
+const getScrollViewWidth = () => {
+    const query = uni.createSelectorQuery()
+    query.select('.category-scroll').boundingClientRect()
+    query.exec((res) => {
+        if (res[0]) {
+            pageWidth.value = res[0].width
+        }
+    })
+}
 
-	// 加载分类数据
-	const loadCategories = async () => {
-		try {
-			const res = await getParentCategories()
+const scrollToPage = (pageIndex) => {
+    if (pageIndex === currentPage.value) return
+    currentPage.value = pageIndex
+}
 
-			categoryList.value = res.map((item, index) => ({
-				id: item.id,
-				name: item.name,
-				firstChar: getFirstChar(item.name),
-				bgColor: bgColors[index % bgColors.length]
-			}))
+let scrollTimer = null
+const onScroll = (e) => {
+    if (scrollTimer) return
+    scrollTimer = setTimeout(() => {
+        const scrollLeft = e.detail.scrollLeft
+        const pageIndex = Math.round(scrollLeft / pageWidth.value)
+        if (pageIndex !== currentPage.value && pageIndex >= 0 && pageIndex < totalPages.value) {
+            currentPage.value = pageIndex
+        }
+        scrollTimer = null
+    }, 50)
+}
 
-			// 重置到第一页
-			currentPage.value = 0
+const loadServices = async (isRefresh = false) => {
+    if (loading.value) return
 
-			// 获取页面宽度
-			nextTick(() => {
-				getScrollViewWidth()
-			})
-		} catch (err) {
-			console.error('加载分类失败', err)
-		}
-	}
+    loading.value = true
+    loadMoreStatus.value = 'loading'
 
-	// 获取滚动视图宽度
-	const getScrollViewWidth = () => {
-		const query = uni.createSelectorQuery()
-		query.select('.category-scroll').boundingClientRect()
-		query.exec((res) => {
-			if (res[0]) {
-				pageWidth.value = res[0].width
-			}
-		})
-	}
+    try {
+        const params = {
+            page: isRefresh ? 1 : page.value,
+            pageSize,
+        }
 
-	// 滚动到指定页码
-	const scrollToPage = (pageIndex) => {
-		if (pageIndex === currentPage.value) return
-		currentPage.value = pageIndex
-	}
+        if (currentSchoolId.value) {
+            params.school_id = currentSchoolId.value
+        }
 
-	// 监听滚动事件，更新当前页码（使用节流）
-	let scrollTimer = null
-	const onScroll = (e) => {
-		if (scrollTimer) return
+        const res = await getServiceList(params)
 
-		scrollTimer = setTimeout(() => {
-			const scrollLeft = e.detail.scrollLeft
+        if (isRefresh) {
+            serviceList.value = res.list || []
+            page.value = 2
+        } else {
+            serviceList.value = [...serviceList.value, ...(res.list || [])]
+            page.value++
+        }
 
-			// 根据滚动距离计算当前页码
-			const pageIndex = Math.round(scrollLeft / pageWidth.value)
-			if (pageIndex !== currentPage.value && pageIndex >= 0 && pageIndex < totalPages.value) {
-				currentPage.value = pageIndex
-			}
+        total.value = res.total || 0
 
-			scrollTimer = null
-		}, 50) // 50ms 的节流
-	}
+        if (serviceList.value.length >= (res.total || 0)) {
+            loadMoreStatus.value = 'noMore'
+        } else {
+            loadMoreStatus.value = 'more'
+        }
 
-	// 加载服务列表
-	const loadServices = async (isRefresh = false) => {
-	  if (loading.value) return
-	
-	  loading.value = true
-	  loadMoreStatus.value = 'loading'
-	
-	  try {
-	    const params = {
-	      page: isRefresh ? 1 : page.value,
-	      pageSize,
-	    }
-	
-	    if (currentSchoolId.value) {
-	      params.school_id = currentSchoolId.value
-	    }
-	
-	
-	    const res = await getServiceList(params)
-	
-	    if (isRefresh) {
-	      serviceList.value = res.list
-	      page.value = 2
-	      
-	      // 刷新成功后显示一个简单的提示
-	      if (res.list.length > 0) {
-	        uni.showToast({
-	          title: '刷新成功',
-	          icon: 'success',
-	          duration: 1000
-	        })
-	      } else {
-	        uni.showToast({
-	          title: '暂无新数据',
-	          icon: 'none',
-	          duration: 1000
-	        })
-	      }
-	    } else {
-	      serviceList.value = [...serviceList.value, ...res.list]
-	      page.value++
-	    }
-	
-	    total.value = res.total
-	
-	    if (serviceList.value.length >= res.total) {
-	      loadMoreStatus.value = 'noMore'
-	    } else {
-	      loadMoreStatus.value = 'more'
-	    }
-	
-	  } catch (err) {
-	    console.error('加载服务列表失败', err)
-	    loadMoreStatus.value = 'more'
-	    
-	    // 刷新失败提示
-	    if (isRefresh) {
-	      uni.showToast({
-	        title: '刷新失败',
-	        icon: 'none'
-	      })
-	    }
-	  } finally {
-	    loading.value = false
-	    uni.stopPullDownRefresh() // 确保停止下拉刷新动画
-	  }
-	}
+    } catch (err) {
+        console.error('加载服务列表失败', err)
+        loadMoreStatus.value = 'more'
+    } finally {
+        loading.value = false
+        uni.stopPullDownRefresh()
+    }
+}
 
-	// 跳转到学校搜索页
-	const goToSchoolSearch = () => {
-		uni.navigateTo({
-			url: `/pages/school-search/school-search?from=home&currentSchoolId=${currentSchoolId.value || 'null'}&currentSchoolName=${encodeURIComponent(currentSchool.value)}`
-		})
-	}
+const goToSchoolSearch = () => {
+    uni.navigateTo({
+        url: `/pages/school-search/school-search?from=home&currentSchoolId=${currentSchoolId.value || 'null'}&currentSchoolName=${encodeURIComponent(currentSchool.value)}`
+    })
+}
 
-	// 跳转到技能搜索
-	const goToSkillSearch = () => {
-		uni.navigateTo({
-			url: '/pages/skill-search/skill-search'
-		})
-	}
+const goToSkillSearch = () => {
+    uni.navigateTo({
+        url: '/pages/skill-search/skill-search'
+    })
+}
 
-	// 跳转到详情页
-	const goToDetail = (id) => {
-		uni.navigateTo({
-			url: `/pages/service-detail/service-detail?id=${id}`
-		})
-	}
+const goToDetail = (id) => {
+    uni.navigateTo({
+        url: `/pages/service-detail/service-detail?id=${id}`
+    })
+}
 
-	// 跳转到分类列表页
-	const goToCategory = (categoryId, categoryName) => {
-		uni.navigateTo({
-			url: `/pages/category-list/category-list?id=${categoryId}&name=${encodeURIComponent(categoryName)}`
-		})
-	}
+const goToCategory = (categoryId, categoryName) => {
+    uni.navigateTo({
+        url: `/pages/category-list/category-list?id=${categoryId}&name=${encodeURIComponent(categoryName)}`
+    })
+}
 
-	// 跳转到全部分类页
-	const goToAllCategories = () => {
-		uni.navigateTo({
-			url: '/pages/categories/categories'
-		})
-	}
+const goToCampusHot = () => {
+    uni.showToast({
+        title: '开发中',
+        icon: 'none'
+    })
+}
 
-	// 首页专用的学校选择监听
-	const setupHomeSchoolListener = () => {
-		uni.$on('homeSchoolSelected', (school) => {
-			if (school === null) {
-				// 选择了全部学校
-				currentSchool.value = '全部学校'
-				currentSchoolId.value = null
-			} else {
-				// 选择了具体学校
-				currentSchool.value = school.name
-				currentSchoolId.value = school.id
-			}
+const setupHomeSchoolListener = () => {
+    uni.$on('homeSchoolSelected', (school) => {
+        if (school === null) {
+            currentSchool.value = '全部学校'
+            currentSchoolId.value = null
+        } else {
+            currentSchool.value = school.name
+            currentSchoolId.value = school.id
+        }
+        page.value = 1
+        loadServices(true)
+        uni.showToast({
+            title: school === null ? '已切换为全部学校' : `已切换到：${school.name}`,
+            icon: 'none'
+        })
+    })
+}
 
-			// 重新加载服务列表
-			page.value = 1
-			loadServices(true)
+const removeHomeSchoolListener = () => {
+    uni.$off('homeSchoolSelected')
+}
 
-			uni.showToast({
-				title: school === null ? '已切换为全部学校' : `已切换到：${school.name}`,
-				icon: 'none'
-			})
-		})
-	}
+// 生命周期 - 只保留一个 onLoad
+onLoad(() => {
+    setupHomeSchoolListener()
+    getRandomSaying()
+    
+    uni.$on('avatarUpdated', () => {
+        page.value = 1
+        loadServices(true)
+    })
+    
+    // 页面加载时调用
+    loadCategories()
+    loadServices()
+})
 
-	const removeHomeSchoolListener = () => {
-		uni.$off('homeSchoolSelected')
-	}
+onUnload(() => {
+    removeHomeSchoolListener()
+    uni.$off('avatarUpdated')
+})
 
-	// 生命周期
-	onLoad(() => {
-		setupHomeSchoolListener()
-	})
+onMounted(() => {
+    // 已经在 onLoad 中调用了，这里不需要重复
+})
 
-	onUnload(() => {
-		removeHomeSchoolListener()
-		uni.$off('avatarUpdated') 
-	})
+onPullDownRefresh(() => {
+    page.value = 1
+    loadServices(true)
+})
 
-	onMounted(() => {
-		loadCategories()
-		loadServices()
-	})
-
-	onPullDownRefresh(() => {
-	  page.value = 1
-	  loadServices(true)
-	})
-	
-	onReachBottom(() => {
-		if (loadMoreStatus.value === 'more') {
-			loadServices()
-		}
-	})
+onReachBottom(() => {
+    if (loadMoreStatus.value === 'more') {
+        loadServices()
+    }
+})
 </script>
 
 <style lang="scss" scoped>
