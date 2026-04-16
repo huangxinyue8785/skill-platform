@@ -13,6 +13,7 @@ const {
     payOrder,
     alipayNotify,
     cancelOrder,
+    queryPayStatus,
     completeOrder,
     deleteOrder
 } = require('../controllers/orderController')
@@ -63,6 +64,8 @@ router.put('/:id/cancel', combinedAuth, cancelOrder)
 router.put('/:id/complete', combinedAuth, completeOrder)
 // ✅ 添加删除订单路由
 router.delete('/:id', combinedAuth, deleteOrder)
+// 主动查询支付状态
+router.post('/:id/query-pay', combinedAuth, queryPayStatus)
 
 router.post('/pay/notify', alipayNotify)
 

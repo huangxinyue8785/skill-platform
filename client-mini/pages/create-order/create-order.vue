@@ -29,23 +29,41 @@
 					<input type="text" v-model="contactInfo" placeholder="请输入手机号/微信/QQ" class="input" />
 				</view>
 
-				<!-- 预约时间（可选） -->
+				<!-- 预约日期 -->
 				<view class="form-item">
-					<text class="label">预约时间</text>
-					<picker mode="date" @change="onDateChange" :value="serviceTime">
+					<text class="label">预约日期</text>
+					<picker mode="date" @change="onDateChange" :value="serviceDate" :start="minDate">
 						<view class="selector">
-							<text :class="['placeholder', { 'selected': serviceTime }]">
-								{{ serviceTime || '请选择预约时间（可选）' }}
+							<text :class="['placeholder', { 'selected': serviceDate }]">
+								{{ serviceDate || '请选择预约日期（可选）' }}
 							</text>
 							<uni-icons type="right"></uni-icons>
 						</view>
 					</picker>
 				</view>
 
-				<!-- 特殊要求（可选） -->
+				<!-- 预约时间 -->
+				<view class="form-item" v-if="serviceDate">
+					<text class="label">具体时间</text>
+					<picker mode="time" @change="onTimeChange" :value="serviceTime" :start="minTime">
+						<view class="selector">
+							<text :class="['placeholder', { 'selected': serviceTime }]">
+								{{ serviceTime || '请选择具体时间（可选）' }}
+							</text>
+							<uni-icons type="right"></uni-icons>
+						</view>
+					</picker>
+				</view>
+
+				<!-- 特殊要求（可选）- 禁止输入表情包 -->
 				<view class="form-item">
 					<text class="label">特殊要求</text>
-					<textarea v-model="requirements" placeholder="有什么特殊要求可以告诉我们（选填）" class="textarea" />
+					<textarea 
+						v-model="requirements" 
+						placeholder="有什么特殊要求可以告诉我们（选填）" 
+						class="textarea"
+						@input="onRequirementsInput"
+					/>
 				</view>
 			</view>
 
@@ -80,7 +98,8 @@
 
 <script setup>
 import {
-	ref
+	ref,
+	computed
 } from 'vue'
 import {
 	onLoad
@@ -94,8 +113,8 @@ import {
 import {
 	useUserStore
 } from '@/stores/user'
-import { checkLogin } from '@/utils/auth'  // 导入 auth.js 的 checkLogin
-import { getImageUrl } from '@/utils/request.js'  // 加上这行
+import { checkLogin } from '@/utils/auth'
+import { getImageUrl } from '@/utils/request.js'
 
 const userStore = useUserStore()
 
@@ -106,8 +125,60 @@ const submitting = ref(false)
 
 // 表单数据
 const contactInfo = ref('')
+const serviceDate = ref('')
 const serviceTime = ref('')
 const requirements = ref('')
+
+// 计算最小日期（今天）
+const minDate = computed(() => {
+	const today = new Date()
+	const year = today.getFullYear()
+	const month = String(today.getMonth() + 1).padStart(2, '0')
+	const day = String(today.getDate()).padStart(2, '0')
+	return `${year}-${month}-${day}`
+})
+
+// 计算最小时间（如果选择的是今天，则不能早于当前时间）
+const minTime = computed(() => {
+	const today = new Date()
+	const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+	
+	// 如果选择的日期是今天，则最小时间为当前时间
+	if (serviceDate.value === todayStr) {
+		const hour = String(today.getHours()).padStart(2, '0')
+		const minute = String(today.getMinutes()).padStart(2, '0')
+		return `${hour}:${minute}`
+	}
+	
+	// 否则可以是任意时间
+	return '00:00'
+})
+
+// 过滤表情符号
+const removeEmoji = (text) => {
+	// 匹配所有 emoji 表情和特殊符号
+	const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F700}-\u{1F77F}]|[\u{1F780}-\u{1F7FF}]|[\u{1F800}-\u{1F8FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{2300}-\u{23FF}]|[\u{2B50}]|[\u{2B55}]|[\u{2934}-\u{2935}]|[\u{3030}]|[\u{303D}]|[\u{3297}]|[\u{3299}]|[\u{FE0F}]|[\u{200D}]|[\u{20E3}]/gu
+	
+	return text.replace(emojiRegex, '')
+}
+
+// 输入特殊要求时的处理
+const onRequirementsInput = (e) => {
+	const value = e.detail.value
+	const filteredValue = removeEmoji(value)
+	
+	// 如果过滤后的值和原值不同，说明包含了表情，更新值并提示
+	if (value !== filteredValue) {
+		requirements.value = filteredValue
+		uni.showToast({
+			title: '暂不支持输入表情符号',
+			icon: 'none',
+			duration: 1500
+		})
+	} else {
+		requirements.value = value
+	}
+}
 
 // 加载服务详情
 onLoad((options) => {
@@ -137,7 +208,46 @@ const loadServiceDetail = async () => {
 
 // 选择日期
 const onDateChange = (e) => {
-	serviceTime.value = e.detail.value
+	const selectedDate = e.detail.value
+	const today = minDate.value
+	
+	if (selectedDate < today) {
+		uni.showToast({ 
+			title: '预约日期不能早于今天', 
+			icon: 'none' 
+		})
+		return
+	}
+	
+	serviceDate.value = selectedDate
+	// 清空之前选择的时间
+	serviceTime.value = ''
+}
+
+// 选择时间
+const onTimeChange = (e) => {
+	const selectedTime = e.detail.value
+	
+	// 如果选择的是今天，验证时间不能早于当前时间
+	const today = new Date()
+	const todayStr = minDate.value
+	
+	if (serviceDate.value === todayStr) {
+		const now = new Date()
+		const currentHour = String(now.getHours()).padStart(2, '0')
+		const currentMinute = String(now.getMinutes()).padStart(2, '0')
+		const currentTime = `${currentHour}:${currentMinute}`
+		
+		if (selectedTime < currentTime) {
+			uni.showToast({ 
+				title: '预约时间不能早于当前时间', 
+				icon: 'none' 
+			})
+			return
+		}
+	}
+	
+	serviceTime.value = selectedTime
 }
 
 // 表单验证
@@ -146,7 +256,18 @@ const validateForm = () => {
 		uni.showToast({ title: '请输入联系方式', icon: 'none' })
 		return false
 	}
+	
+	// 再次过滤特殊要求中的表情（防止绕过输入事件）
+	requirements.value = removeEmoji(requirements.value)
+	
 	return true
+}
+
+// 获取完整的预约时间
+const getFullServiceTime = () => {
+	if (!serviceDate.value) return ''
+	if (!serviceTime.value) return serviceDate.value
+	return `${serviceDate.value} ${serviceTime.value}`
 }
 
 // 提交订单
@@ -154,7 +275,7 @@ const handleSubmit = async () => {
 	if (!validateForm()) return
 
 	// 检查登录
-	if (!checkLogin()) return  // 使用 auth.js 的 checkLogin
+	if (!checkLogin()) return
 
 	submitting.value = true
 	uni.showLoading({ title: '创建订单中...' })
@@ -164,11 +285,12 @@ const handleSubmit = async () => {
 			service_id: serviceId.value,
 			contact_info: contactInfo.value.trim(),
 			requirements: requirements.value.trim() || undefined,
-			service_time: serviceTime.value || undefined
+			service_time: getFullServiceTime() || undefined
 		}
 		const order = await createOrder(orderData)
 		uni.hideLoading()
-		uni.navigateTo({
+		
+		uni.redirectTo({
 			url: `/pages/pay/pay?orderId=${order.id}&amount=${order.amount}`
 		})
 	} catch (err) {
@@ -356,8 +478,7 @@ const handleSubmit = async () => {
 		background-color: #fff;
 		display: flex;
 		align-items: center;
-		// justify-content: space-between;
-		padding: 20rpx 20rpx 10rpx 20rpx;  /* 改成左右都有内边距 */
+		padding: 20rpx 20rpx 10rpx 20rpx;
 		padding-bottom: calc(20rpx + constant(safe-area-inset-bottom));
 		padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
 		box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
@@ -388,7 +509,7 @@ const handleSubmit = async () => {
 			font-size: 30rpx;
 			font-weight: 500;
 			border: none;
-			margin-left: auto;  /* 自动靠右 */
+			margin-left: auto;
 			margin-right: 50rpx;
 	
 			&::after {

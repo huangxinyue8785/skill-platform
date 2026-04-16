@@ -13,12 +13,19 @@
 				</text>
 			</view>
 
-			<!-- 横向滚动的分类，每页12个，可左右滑动翻页 -->
-			<scroll-view class="category-scroll" scroll-x show-scrollbar="false" @scroll="onScroll"
-				:scroll-into-view="'page' + currentPage" scroll-with-animation :enhanced="true" :bounces="false">
-				<view class="category-page" v-for="(pageItems, pageIndex) in paginatedCategories" :key="pageIndex"
-					:id="'page' + pageIndex">
-					<view class="category-grid">
+			<!-- 使用 swiper 实现分类翻页，丝滑不卡顿 -->
+			<swiper 
+				class="category-swiper" 
+				:current="currentPage" 
+				@change="onSwiperChange"
+				:indicator-dots="false"
+				:autoplay="false"
+				:circular="false"
+				:duration="300"
+				:style="{ height: swiperHeight + 'rpx' }"
+			>
+				<swiper-item v-for="(pageItems, pageIndex) in paginatedCategories" :key="pageIndex">
+					<view class="category-grid" :id="'grid-' + pageIndex">
 						<view class="category-item" v-for="item in pageItems" :key="item.id"
 							@click="goToCategory(item.id,item.name)">
 							<view class="category-icon" :style="{ backgroundColor: item.bgColor }">
@@ -27,13 +34,18 @@
 							<text class="category-name">{{ item.name }}</text>
 						</view>
 					</view>
-				</view>
-			</scroll-view>
+				</swiper-item>
+			</swiper>
 
-			<!-- 页码指示器 -->
+			<!-- 页码指示器 - 正圆点 -->
 			<view class="pagination" v-if="totalPages > 1">
-				<view v-for="page in totalPages" :key="page" class="pagination-dot"
-					:class="{ active: currentPage === page-1 }" @click="scrollToPage(page-1)"></view>
+				<view 
+					v-for="page in totalPages" 
+					:key="page" 
+					class="pagination-dot"
+					:class="{ active: currentPage === page-1 }" 
+					@click="scrollToPage(page-1)"
+				></view>
 			</view>
 
 			<view class="divider"></view>
@@ -67,9 +79,9 @@
 <script setup>
 import {
     ref,
-    onMounted,
     computed,
-    nextTick
+    nextTick,
+    watch
 } from 'vue'
 import {
     onLoad,
@@ -115,8 +127,7 @@ const getRandomSaying = () => {
 // 分类分页相关
 const currentPage = ref(0)
 const itemsPerPage = 12
-const isScrolling = ref(false)
-const pageWidth = ref(750)
+const swiperHeight = ref(400) // 默认高度，单位rpx
 
 const bgColors = [
     '#FFE4E1', '#E0F7FA', '#E8F5E9', '#FFF3E0',
@@ -142,6 +153,27 @@ const getFirstChar = (name) => {
     return name.substring(0, 2).toUpperCase()
 }
 
+// 计算 swiper 实际高度
+const calculateSwiperHeight = () => {
+    nextTick(() => {
+        const query = uni.createSelectorQuery()
+        // 获取第一个网格的实际高度
+        query.select('#grid-0').boundingClientRect()
+        query.exec((res) => {
+            if (res[0] && res[0].height) {
+                // 转换为rpx (750rpx设计稿)
+                const systemInfo = uni.getSystemInfoSync()
+                const rpxRatio = 750 / systemInfo.windowWidth
+                swiperHeight.value = Math.ceil(res[0].height * rpxRatio) + 20 // 加一点内边距
+            } else {
+                // 如果获取失败，根据行数计算
+                const rows = Math.ceil(itemsPerPage / 4)
+                swiperHeight.value = rows * 180 + (rows - 1) * 30 + 40
+            }
+        })
+    })
+}
+
 const loadCategories = async () => {
     try {
         const res = await getParentCategories()
@@ -152,40 +184,35 @@ const loadCategories = async () => {
             bgColor: bgColors[index % bgColors.length]
         }))
         currentPage.value = 0
+        
+        // 等待DOM渲染完成后计算高度
         nextTick(() => {
-            getScrollViewWidth()
+            setTimeout(() => {
+                calculateSwiperHeight()
+            }, 100)
         })
     } catch (err) {
         console.error('加载分类失败', err)
     }
 }
 
-const getScrollViewWidth = () => {
-    const query = uni.createSelectorQuery()
-    query.select('.category-scroll').boundingClientRect()
-    query.exec((res) => {
-        if (res[0]) {
-            pageWidth.value = res[0].width
-        }
-    })
+// 监听分类数据变化，重新计算高度
+watch(categoryList, () => {
+    if (categoryList.value.length > 0) {
+        setTimeout(() => {
+            calculateSwiperHeight()
+        }, 100)
+    }
+}, { deep: true })
+
+// swiper 切换事件
+const onSwiperChange = (e) => {
+    currentPage.value = e.detail.current
 }
 
 const scrollToPage = (pageIndex) => {
     if (pageIndex === currentPage.value) return
     currentPage.value = pageIndex
-}
-
-let scrollTimer = null
-const onScroll = (e) => {
-    if (scrollTimer) return
-    scrollTimer = setTimeout(() => {
-        const scrollLeft = e.detail.scrollLeft
-        const pageIndex = Math.round(scrollLeft / pageWidth.value)
-        if (pageIndex !== currentPage.value && pageIndex >= 0 && pageIndex < totalPages.value) {
-            currentPage.value = pageIndex
-        }
-        scrollTimer = null
-    }, 50)
 }
 
 const loadServices = async (isRefresh = false) => {
@@ -284,7 +311,6 @@ const removeHomeSchoolListener = () => {
     uni.$off('homeSchoolSelected')
 }
 
-// 生命周期 - 只保留一个 onLoad
 onLoad(() => {
     setupHomeSchoolListener()
     getRandomSaying()
@@ -294,7 +320,6 @@ onLoad(() => {
         loadServices(true)
     })
     
-    // 页面加载时调用
     loadCategories()
     loadServices()
 })
@@ -302,10 +327,6 @@ onLoad(() => {
 onUnload(() => {
     removeHomeSchoolListener()
     uni.$off('avatarUpdated')
-})
-
-onMounted(() => {
-    // 已经在 onLoad 中调用了，这里不需要重复
 })
 
 onPullDownRefresh(() => {
@@ -363,24 +384,10 @@ onReachBottom(() => {
 				}
 			}
 
-			/* 横向滚动容器 - 隐藏滚动条 */
-			.category-scroll {
+			/* swiper 容器 */
+			.category-swiper {
 				width: 100%;
-				white-space: nowrap;
 				margin-bottom: 20rpx;
-
-				/* 隐藏滚动条 */
-				::-webkit-scrollbar {
-					display: none;
-					width: 0;
-					height: 0;
-				}
-
-				.category-page {
-					display: inline-block;
-					width: 100%;
-					vertical-align: top;
-				}
 			}
 
 			/* 网格布局（每页12个） */
@@ -424,7 +431,7 @@ onReachBottom(() => {
 				}
 			}
 
-			/* 页码指示器 */
+			/* 页码指示器 - 纯圆点 */
 			.pagination {
 				display: flex;
 				justify-content: center;
@@ -437,10 +444,11 @@ onReachBottom(() => {
 					height: 12rpx;
 					border-radius: 50%;
 					background-color: #ddd;
-					transition: all 0.3s;
+					transition: background-color 0.3s;
 
 					&.active {
-						width: 24rpx;
+						width: 12rpx;
+						height: 12rpx;
 						background: linear-gradient(135deg, #f2e89f 0%, #d0f3f9 100%);
 					}
 				}
@@ -459,11 +467,8 @@ onReachBottom(() => {
 					font-weight: 600;
 					color: #333;
 					position: relative;
-					/* 加上相对定位 */
 					padding-left: 20rpx;
-					/* 留出竖线的空间 */
 
-					/* 添加同款竖线 */
 					&::before {
 						content: '';
 						position: absolute;

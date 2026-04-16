@@ -86,7 +86,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { getOrderDetail, payOrder } from '@/api/order.js'
+import { getOrderDetail, payOrder ,queryPayStatus } from '@/api/order.js'
 import { checkLogin } from '@/utils/auth'
 
 const orderId = ref('')
@@ -131,8 +131,9 @@ const loadOrderDetail = async () => {
 				icon: 'success'
 			})
 			setTimeout(() => {
-				uni.reLaunch({
-					url: `/pages/order/detail?id=${orderId.value}`
+				// ✅ 改成 redirectTo
+				uni.redirectTo({
+					url: `/pages/order/detail?id=${orderId.value}&fromPay=true`
 				})
 			}, 1500)
 		}
@@ -231,25 +232,21 @@ const handleConfirmPay = async () => {
 	})
 
 	try {
-		// 重新获取订单详情，检查支付状态
-		const res = await getOrderDetail(orderId.value)
+		const res = await queryPayStatus(orderId.value)
+		uni.hideLoading()
 
-		if (res.status === 1) {
-			// 已支付
-			uni.hideLoading()
+		if (res.paid) {
 			uni.showToast({
 				title: '支付成功！',
 				icon: 'success'
 			})
 			setTimeout(() => {
-				// ✅ 使用 reLaunch 清空页面栈，避免返回时出现奇怪效果
-				uni.reLaunch({
-					url: `/pages/order/detail?id=${orderId.value}`
+				// ✅ 改成 redirectTo，并加上 fromPay 参数
+				uni.redirectTo({
+					url: `/pages/order/detail?id=${orderId.value}&fromPay=true`
 				})
 			}, 1500)
-		} else if (res.status === 0) {
-			// 未支付
-			uni.hideLoading()
+		} else {
 			uni.showModal({
 				title: '提示',
 				content: '暂未检测到支付成功，请确认是否已完成支付？\n\n如果已完成支付，请稍等几秒后重试；如果未完成，请先完成支付。',
@@ -257,21 +254,14 @@ const handleConfirmPay = async () => {
 				cancelText: '返回',
 				success: (modalRes) => {
 					if (modalRes.confirm) {
-						// 重新确认
 						handleConfirmPay()
 					}
 				}
 			})
-		} else {
-			uni.hideLoading()
-			uni.showToast({
-				title: '订单状态异常',
-				icon: 'none'
-			})
 		}
 	} catch (err) {
-		console.error('确认支付失败', err)
 		uni.hideLoading()
+		console.error('确认支付失败', err)
 		uni.showToast({
 			title: '确认失败，请稍后重试',
 			icon: 'none'

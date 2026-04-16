@@ -4,8 +4,18 @@
 			<image src="/static/loading.gif" class="loading-icon"></image>
 		</view>
 
-		<scroll-view scroll-y class="message-list" :scroll-into-view="scrollIntoView" :scroll-top="scrollTop"
-			@scrolltoupper="loadMoreMessages" :show-scrollbar="false" :enhanced="true">
+		<!-- ✅ 动态计算消息列表高度 -->
+		<scroll-view 
+			ref="scrollViewRef"
+			scroll-y 
+			class="message-list" 
+			:style="{ height: messageListHeight }"
+			:scroll-into-view="scrollIntoView" 
+			:scroll-top="scrollTop"
+			@scrolltoupper="loadMoreMessages" 
+			:show-scrollbar="false" 
+			:enhanced="true"
+		>
 			<view v-for="(msg, index) in messageList" :key="msg.ID" :id="'msg-' + index">
 				<view v-if="shouldShowTime(msg, index)" class="message-time">
 					{{ formatTime(msg.time) }}
@@ -17,13 +27,26 @@
 					</view>
 				</view>
 			</view>
-			<view style="height: 120rpx;"></view>
+			<!-- ✅ 底部安全距离 -->
+			<view style="height: 100rpx;" id="bottom-placeholder"></view>
 		</scroll-view>
 
+		<!-- ✅ 输入框区域 -->
 		<view class="input-area" :style="{ bottom: keyboardHeight + 'px' }">
-			<textarea v-model="inputText" placeholder="请输入消息..." confirm-type="send" @confirm="sendMessage"
-				:adjust-position="false" :hold-keyboard="true" :auto-height="true" :show-confirm-bar="false"
-				class="message-input" />
+			<textarea 
+				v-model="inputText" 
+				placeholder="请输入消息..." 
+				confirm-type="send" 
+				@confirm="sendMessage"
+				:adjust-position="false" 
+				:hold-keyboard="true" 
+				:auto-height="true" 
+				:show-confirm-bar="false"
+				:disable-default-padding="true"
+				@focus="onInputFocus"
+				@blur="onInputBlur"
+				class="message-input" 
+			/>
 			<button class="send-btn" @click="sendMessage">发送</button>
 		</view>
 	</view>
@@ -34,10 +57,13 @@ import {
 	ref,
 	onUnmounted,
 	nextTick,
-	onMounted
+	onMounted,
+	computed,
+	getCurrentInstance
 } from 'vue'
 import {
-	onLoad
+	onLoad,
+	onReady
 } from '@dcloudio/uni-app'
 import {
 	useUserStore
@@ -46,8 +72,9 @@ import {
 	getImageUrl
 } from '@/utils/request'
 import { getMessageList, sendTextMessage, onMessageReceived, waitForSDKReady, getTIM } from '@/utils/im'
-import config from '@/utils/config.js'  
+import config from '@/utils/config.js'
 
+const instance = getCurrentInstance()
 const userStore = useUserStore()
 
 const keyboardHeight = ref(0)
@@ -61,22 +88,140 @@ const nextReqMessageID = ref('')
 const isLoadingMore = ref(false)
 const isReady = ref(false)
 const loading = ref(true)
+const scrollViewRef = ref(null)
 
 // 防抖定时器
 let messageTimer = null
 let keyboardTimer = null
 
-// 键盘监听
-onMounted(() => {
-	// #ifdef MP-WEIXIN
+// ✅ 计算消息列表的高度
+const messageListHeight = computed(() => {
+	if (keyboardHeight.value > 0) {
+		return `calc(100vh - ${keyboardHeight.value}px)`
+	} else {
+		return '100vh'
+	}
+})
+
+// ✅ 精确滚动到底部（使用 SelectorQuery）
+const scrollToBottomPrecise = () => {
+	if (messageList.value.length === 0) return
+	
+	nextTick(() => {
+		const query = uni.createSelectorQuery().in(instance)
+		
+		query.select('.message-list').boundingClientRect()
+		query.select('#bottom-placeholder').boundingClientRect()
+		
+		query.exec((res) => {
+			if (res[0] && res[1]) {
+				const containerRect = res[0]
+				const placeholderRect = res[1]
+				
+				const scrollDistance = placeholderRect.bottom - containerRect.bottom
+				
+				if (scrollDistance > 0) {
+					scrollTop.value = (scrollTop.value || 0) + scrollDistance + 20
+				} else {
+					scrollTop.value = 999999
+				}
+			} else {
+				const lastIndex = messageList.value.length - 1
+				scrollIntoView.value = `msg-${lastIndex}`
+				setTimeout(() => {
+					scrollTop.value = 999999
+				}, 50)
+			}
+		})
+	})
+}
+
+// 强制滚动到底部
+const forceScrollToBottom = () => {
+	scrollToBottomPrecise()
+}
+
+// 滚动到底部
+const scrollToBottom = () => {
+	scrollToBottomPrecise()
+}
+
+// ✅ 输入框聚焦处理
+const onInputFocus = () => {
+	console.log('输入框聚焦')
+	// #ifdef APP-PLUS
+	setTimeout(() => {
+		forceScrollToBottom()
+	}, 300)
+	// #endif
+}
+
+// ✅ 输入框失焦处理
+const onInputBlur = () => {
+	console.log('输入框失焦')
+	// #ifdef APP-PLUS
+	setTimeout(() => {
+		forceScrollToBottom()
+	}, 100)
+	// #endif
+}
+
+// ✅ 在 onReady 中注册键盘监听（App 端更稳定）
+onReady(() => {
+	// #ifdef APP-PLUS
+	console.log('onReady - 注册 App 键盘监听')
 	uni.onKeyboardHeightChange((res) => {
+		console.log('App键盘高度变化:', res.height)
 		keyboardHeight.value = res.height
+		
 		if (keyboardTimer) {
 			clearTimeout(keyboardTimer)
 		}
+		
 		if (res.height > 0) {
-			keyboardTimer = setTimeout(() => scrollToBottom(), 150)
+			keyboardTimer = setTimeout(() => {
+				forceScrollToBottom()
+			}, 300)
+		} else {
+			keyboardTimer = setTimeout(() => {
+				forceScrollToBottom()
+			}, 150)
 		}
+	})
+	// #endif
+})
+
+// 键盘监听（小程序环境）
+onMounted(() => {
+	// #ifdef MP-WEIXIN
+	console.log('onMounted - 注册微信键盘监听')
+	uni.onKeyboardHeightChange((res) => {
+		console.log('微信键盘高度变化:', res.height)
+		keyboardHeight.value = res.height
+		
+		if (keyboardTimer) {
+			clearTimeout(keyboardTimer)
+		}
+		
+		keyboardTimer = setTimeout(() => {
+			forceScrollToBottom()
+		}, res.height > 0 ? 250 : 150)
+	})
+	// #endif
+	
+	// #ifdef APP-PLUS
+	// App 端也尝试在 onMounted 注册一次作为备份
+	uni.onKeyboardHeightChange((res) => {
+		console.log('App键盘高度变化(备份):', res.height)
+		keyboardHeight.value = res.height
+		
+		if (keyboardTimer) {
+			clearTimeout(keyboardTimer)
+		}
+		
+		keyboardTimer = setTimeout(() => {
+			forceScrollToBottom()
+		}, res.height > 0 ? 300 : 150)
 	})
 	// #endif
 })
@@ -121,7 +266,6 @@ onLoad(async (options) => {
   
   isReady.value = true
   await loadMessages()
-  loading.value = false
 })
 
 // 获取对方信息
@@ -166,14 +310,32 @@ const loadMessages = async () => {
   if (!isReady.value || !targetUserId.value) return
   try {
     const messages = await getMessageList(targetUserId.value)
-    messageList.value = messages
-    nextReqMessageID.value = messages.length > 0 ? messages[messages.length - 1].ID : ''
     
-    // ✅ 不再自动标记已读，红点保留直到用户离开页面
+    // 去重
+    const uniqueMessages = []
+    const seenIds = new Set()
+    for (const msg of messages) {
+      if (!seenIds.has(msg.ID)) {
+        seenIds.add(msg.ID)
+        uniqueMessages.push(msg)
+      }
+    }
     
-    scrollToBottom()
+    messageList.value = uniqueMessages
+    nextReqMessageID.value = uniqueMessages.length > 0 ? uniqueMessages[uniqueMessages.length - 1].ID : ''
+    
+    // ✅ 先滚动到底部，再关闭 loading
+    nextTick(() => {
+      forceScrollToBottom()
+      
+      // 延迟关闭 loading，让滚动动画完成
+      setTimeout(() => {
+        loading.value = false
+      }, 150)
+    })
   } catch (err) {
     console.error('加载消息失败', err)
+    loading.value = false
   }
 }
 
@@ -194,6 +356,7 @@ const markConversationRead = async () => {
 const loadMoreMessages = async () => {
   if (isLoadingMore.value || !nextReqMessageID.value) return
   isLoadingMore.value = true
+  
   try {
     const tim = getTIM()
     const res = await tim.getMessageList({
@@ -201,9 +364,22 @@ const loadMoreMessages = async () => {
       count: 15,
       nextReqMessageID: nextReqMessageID.value
     })
+    
     const olderMessages = res.data.messageList.sort((a, b) => a.time - b.time)
-    messageList.value = [...olderMessages, ...messageList.value]
+    
+    // 去重
+    const existingIds = new Set(messageList.value.map(msg => msg.ID))
+    const newMessages = olderMessages.filter(msg => !existingIds.has(msg.ID))
+    
+    if (newMessages.length > 0) {
+      messageList.value = [...newMessages, ...messageList.value]
+    }
+    
     nextReqMessageID.value = res.data.nextReqMessageID
+    
+    if (newMessages.length === 0 && !nextReqMessageID.value) {
+      console.log('没有更多历史消息了')
+    }
   } catch (err) {
     console.error('加载更多失败', err)
   } finally {
@@ -211,7 +387,7 @@ const loadMoreMessages = async () => {
   }
 }
 
-// 新消息监听 - 不再自动标记已读
+// 新消息监听
 onMessageReceived((event) => {
   if (messageTimer) {
     clearTimeout(messageTimer)
@@ -222,8 +398,9 @@ onMessageReceived((event) => {
     if (newMessages.length) {
       console.log(`收到 ${newMessages.length} 条新消息`)
       messageList.value = [...messageList.value, ...newMessages]
-      // ✅ 收到新消息时也不自动标记已读，让用户看到红点
-      scrollToBottom()
+      setTimeout(() => {
+        forceScrollToBottom()
+      }, 100)
     }
   }, 100)
 })
@@ -237,7 +414,9 @@ const sendMessage = async () => {
     newMsg.ID = `${Date.now()}_${Math.random().toString(36).substr(2, 8)}`
     messageList.value.push(newMsg)
     inputText.value = ''
-    scrollToBottom()
+    setTimeout(() => {
+      forceScrollToBottom()
+    }, 100)
   } catch (err) {
     console.error('发送失败', err)
     uni.showToast({
@@ -247,24 +426,10 @@ const sendMessage = async () => {
   }
 }
 
-// 滚动到底部
-const scrollToBottom = () => {
-	nextTick(() => {
-		if (messageList.value.length > 0) {
-			scrollIntoView.value = `msg-${messageList.value.length - 1}`
-			setTimeout(() => {
-				scrollTop.value = 999999
-			}, 50)
-		}
-	})
-}
-
-// ✅ 页面销毁时标记已读（用户离开聊天页面时）
+// 页面销毁时标记已读
 onUnmounted(() => {
-  // 标记当前会话为已读
   markConversationRead()
   
-  // 清理定时器
   if (messageTimer) {
     clearTimeout(messageTimer)
     messageTimer = null
@@ -273,6 +438,10 @@ onUnmounted(() => {
     clearTimeout(keyboardTimer)
     keyboardTimer = null
   }
+  
+  // #ifdef APP-PLUS
+  uni.offKeyboardHeightChange(() => {})
+  // #endif
   // #ifdef MP-WEIXIN
   uni.offKeyboardHeightChange(() => {})
   // #endif
@@ -306,11 +475,12 @@ onUnmounted(() => {
 	}
 
 	.message-list {
-		height: 100vh;
+		width: 100%;
 		padding: 20rpx;
-		padding-bottom: 50rpx;
+		padding-bottom: 20rpx;
 		box-sizing: border-box;
 		overflow-y: auto;
+		transition: height 0.2s ease;
 
 		&::-webkit-scrollbar {
 			display: none;
@@ -370,39 +540,74 @@ onUnmounted(() => {
 	}
 
 	.input-area {
-		position: fixed;
-		left: 0;
-		right: 0;
-		display: flex;
-		padding: 20rpx 24rpx;
-		background-color: #fff;
-		border-top: 1rpx solid #eee;
-		gap: 12rpx;
-		transition: bottom 0.2s ease;
-
-		.message-input {
-			flex: 1;
-			height: 70rpx;
-			background-color: #f5f5f5;
-			border-radius: 35rpx;
-			padding: 18rpx 24rpx;
-			font-size: 28rpx;
-		}
-
-		.send-btn {
-			width: 120rpx;
-			height: 70rpx;
-			line-height: 70rpx;
-			background: linear-gradient(135deg, #f2e89f 0%, #d0f3f9 100%);
-			border-radius: 35rpx;
-			font-size: 28rpx;
-			color: #333;
-			padding: 0;
-			flex-shrink: 0;
-
-			&::after {
+			position: fixed;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			display: flex;
+			align-items: flex-end;
+			padding: 16rpx 24rpx;
+			background-color: #fff;
+			border-top: 1rpx solid #eee;
+			gap: 12rpx;
+			transition: bottom 0.2s ease;
+			padding-bottom: calc(16rpx + constant(safe-area-inset-bottom));
+			padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
+	
+			.message-input {
+				flex: 1;
+				background-color: #f5f5f5;
+				border-radius: 35rpx;
+				font-size: 28rpx;
+				box-sizing: border-box;
+				
+				/* ✅ 默认样式（App 和 H5） */
+				height: 70rpx;
+				min-height: 70rpx;
+				max-height: 200rpx;
+				line-height: 70rpx;
+				padding: 0 24rpx;
+			}
+	
+			.send-btn {
+				width: 120rpx;
+				height: 70rpx;
+				line-height: 70rpx;
+				background: linear-gradient(135deg, #f2e89f 0%, #d0f3f9 100%);
+				border-radius: 35rpx;
+				font-size: 28rpx;
+				color: #333;
+				padding: 0;
+				flex-shrink: 0;
 				border: none;
+	
+				&::after {
+					border: none;
+				}
 			}
 		}
-	}
-</style>
+	
+		/* ✅ 小程序专用样式 */
+		/* #ifdef MP-WEIXIN */
+		.input-area {
+			.message-input {
+				height: auto;
+				min-height: 70rpx;
+				line-height: 1.4;
+				padding: 15rpx 24rpx;
+			}
+		}
+		/* #endif */
+	
+		/* ✅ App 专用样式 */
+		/* #ifdef APP-PLUS */
+		.input-area {
+			.message-input {
+				height: 70rpx;
+				min-height: 70rpx;
+				line-height: 70rpx;
+				padding: 0 24rpx;
+			}
+		}
+		/* #endif */
+	</style>

@@ -89,6 +89,11 @@
 				@click="handleCancel">
 				取消订单
 			</button>
+			<!-- ✅ 新增：联系卖家按钮（买家支付后可以联系卖家） -->
+			<button v-if="order.status === 1 && order.currentRole === 'buyer'" class="action-btn contact-btn"
+				@click="handleContactSeller">
+				联系卖家
+			</button>
 			<button v-if="order.status === 1 && order.currentRole === 'seller'" class="action-btn complete-btn"
 				@click="handleComplete">
 				标记完成
@@ -155,19 +160,12 @@ onLoad((options) => {
 	}
 })
 
-// ✅ 页面卸载时处理返回逻辑
+// ✅ 页面卸载时只清理定时器，不强制跳转
 onUnload(() => {
 	// 清理定时器
 	if (autoCheckTimer.value) {
 		clearTimeout(autoCheckTimer.value)
-	}
-	// 从支付页过来的，返回首页
-	if (fromPay.value) {
-		setTimeout(() => {
-			uni.switchTab({
-				url: '/pages/index/index'
-			})
-		}, 50)
+		autoCheckTimer.value = null
 	}
 })
 
@@ -322,14 +320,10 @@ const handleDelete = async () => {
 						title: '删除成功',
 						icon: 'success'
 					})
-					// 删除后根据来源返回
-					if (fromPay.value) {
-						uni.switchTab({
-							url: '/pages/index/index'
-						})
-					} else {
+					// ✅ 删除后直接返回上一页，不强制跳转首页
+					setTimeout(() => {
 						uni.navigateBack()
-					}
+					}, 1500)
 				}
 			}
 		})
@@ -340,6 +334,22 @@ const handleDelete = async () => {
 			icon: 'none'
 		})
 	}
+}
+
+// ✅ 新增：联系卖家
+const handleContactSeller = () => {
+	if (!order.value.seller?.id) {
+		uni.showToast({ title: '无法获取卖家信息', icon: 'none' })
+		return
+	}
+	
+	const targetUserId = order.value.seller.id
+	const targetNickname = order.value.seller.nickname || '卖家'
+	const targetAvatar = order.value.seller.avatar || ''
+	
+	uni.navigateTo({
+		url: `/pages/chat/chat?userId=${targetUserId}&nickname=${encodeURIComponent(targetNickname)}&avatar=${encodeURIComponent(targetAvatar)}`
+	})
 }
 </script>
 
@@ -549,6 +559,11 @@ const handleDelete = async () => {
 			&.complete-btn {
 				background-color: #e8f8e8;
 				color: #07c160;
+			}
+			
+			&.contact-btn {
+				background-color: #e8f0fe;
+				color: #3a7cb9;
 			}
 		}
 	}

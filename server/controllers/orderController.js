@@ -671,6 +671,81 @@ const deleteOrder = async (req, res) => {
     }
 }
 
+// 主动查询支付宝支付状态 - 接口：POST /api/orders/:id/query-pay
+const queryPayStatus = async (req, res) => {
+    try {
+        const userId = req.userId
+        const orderId = req.params.id
+
+        if (!orderId) {
+            return res.json(error('订单号不能为空', 400))
+        }
+
+        // 查询本地订单
+        const [orders] = await db.query(
+            'SELECT * FROM orders WHERE id = ?',
+            [orderId]
+        )
+
+        if (orders.length === 0) {
+            return res.json(error('订单不存在', 404))
+        }
+
+        const order = orders[0]
+
+        // 权限验证
+        if (order.buyer_id !== userId && order.seller_id !== userId) {
+            return res.json(error('无权查看此订单', 403))
+        }
+
+        // 如果本地已经是已支付，直接返回
+        if (order.status === 1) {
+            return res.json(success({ paid: true, status: 1 }, '订单已支付'))
+        }
+
+        // 调用支付宝查询
+        const result = await alipaySdk.exec(
+            'alipay.trade.query',
+            {},
+            {
+                bizContent: {
+                    out_trade_no: orderId
+                }
+            }
+        )
+
+        console.log('【主动查询支付宝】返回:', JSON.stringify(result))
+
+        // ✅ 处理各种返回情况
+        if (result.code === '10000') {
+            // 查询成功
+            const tradeStatus = result.trade_status
+            if (tradeStatus === 'TRADE_SUCCESS' || tradeStatus === 'TRADE_FINISHED') {
+                await db.query(
+                    'UPDATE orders SET status = 1, pay_time = NOW() WHERE id = ? AND status = 0',
+                    [orderId]
+                )
+                console.log(`【主动查询-支付成功】订单 ${orderId} 已更新`)
+                return res.json(success({ paid: true, status: 1 }, '支付成功'))
+            } else {
+                return res.json(success({ paid: false, status: 0 }, '订单未支付'))
+            }
+        } else if (result.code === '40004') {
+            // ✅ 交易不存在 = 未支付
+            console.log(`【主动查询】订单 ${orderId} 在支付宝中不存在（未支付）`)
+            return res.json(success({ paid: false, status: 0 }, '订单未支付'))
+        } else {
+            // 其他错误
+            console.error('支付宝查询失败:', result)
+            return res.json(error('查询支付状态失败：' + (result.sub_msg || result.msg || '未知错误'), 500))
+        }
+
+    } catch (err) {
+        console.error('查询支付状态异常:', err)
+        res.json(error('服务器错误：' + err.message, 500))
+    }
+}
+
 module.exports = {
     createOrder,
     getOrderList,
@@ -679,5 +754,6 @@ module.exports = {
     alipayNotify,
     cancelOrder,
     completeOrder,
-    deleteOrder
+    deleteOrder,
+    queryPayStatus
 }

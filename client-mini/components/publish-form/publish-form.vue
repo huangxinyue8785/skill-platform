@@ -1,20 +1,29 @@
 <template>
 	<view class="publish-form">
-		<form @submit="handleSubmit" class="publish-form-content">
+		<!-- ✅ 移除 @submit，改用普通表单 -->
+		<form class="publish-form-content">
 			<!-- 所有表单项放在这里 -->
 			<view class="form-fields">
 				<!-- 服务标题 -->
 				<view class="form-item">
 					<text class="label">服务标题 <text class="required">*</text></text>
-					<input type="text" placeholder="请输入服务标题（2-50字）" class="input" v-model="title" />
+					<input 
+						type="text" 
+						placeholder="请输入有意义的服务标题（2-50字）" 
+						class="input" 
+						v-model="title" 
+						:disabled="submitting"
+						@blur="validateTitle"
+					/>
+					<view v-if="titleError" class="error-tip">{{ titleError }}</view>
 				</view>
 
 				<!-- 服务分类 -->
 				<view class="form-item">
 					<text class="label">服务分类 <text class="required">*</text></text>
 					<picker mode="multiSelector" :range="categoryColumns" :value="categoryPickerIndex"
-						@columnchange="onCategoryColumnChange" @change="onCategoryPickerChange">
-						<view class="selector">
+						@columnchange="onCategoryColumnChange" @change="onCategoryPickerChange" :disabled="submitting">
+						<view class="selector" :class="{ 'disabled': submitting }">
 							<text :class="['placeholder',{'selected':categoryName}]">
 								{{categoryName || '请选择分类'}}
 							</text>
@@ -26,25 +35,49 @@
 				<!-- 服务描述 -->
 				<view class="form-item">
 					<text class="label">服务描述 <text class="required">*</text></text>
-					<textarea placeholder="请详细描述你的服务（至少10字）" class="textarea" v-model="description" />
+					<textarea 
+						placeholder="请详细描述你的服务内容（至少10个有效字符）" 
+						class="textarea" 
+						v-model="description" 
+						:disabled="submitting"
+						@blur="validateDescription"
+					/>
+					<view class="char-count">{{ validDescriptionLength }}/10</view>
+					<view v-if="descriptionError" class="error-tip">{{ descriptionError }}</view>
 				</view>
 
 				<!-- 服务价格 -->
 				<view class="form-item">
 					<text class="label">服务价格 <text class="required">*</text></text>
-					<input type="number" placeholder="请输入价格（元）" class="input" v-model="price" />
+					<input 
+						type="digit" 
+						placeholder="请输入合理价格（0.01-99999元）" 
+						class="input" 
+						v-model="price" 
+						:disabled="submitting"
+						@blur="validatePrice"
+					/>
+					<view v-if="priceError" class="error-tip">{{ priceError }}</view>
 				</view>
 
 				<!-- 联系方式 -->
 				<view class="form-item">
 					<text class="label">联系方式 <text class="required">*</text></text>
-					<input type="text" placeholder="请输入手机号/微信/QQ" class="input" v-model="contact" />
+					<input 
+						type="text" 
+						placeholder="请输入有效联系方式" 
+						class="input" 
+						v-model="contact" 
+						:disabled="submitting"
+						@blur="validateContact"
+					/>
+					<view v-if="contactError" class="error-tip">{{ contactError }}</view>
 				</view>
 
 				<!-- 所在学校（可选） -->
 				<view class="form-item">
 					<text class="label">所在学校</text>
-					<view class="selector" @click="chooseSchool">
+					<view class="selector" @click="!submitting && chooseSchool()" :class="{ 'disabled': submitting }">
 						<text :class="['placeholder', {'selected': schoolName}]">
 							{{ schoolName || '请选择学校（可选）' }}
 						</text>
@@ -58,13 +91,13 @@
 					<view class="upload-area">
 						<view class="image-list">
 							<view v-for="(img, index) in localImages" :key="index" class="image-item">
-								<image :src="getImageUrl(img)" mode="aspectFill"></image>
-								<view class="image-remove" @click="removeImage(index)">
+								<image :src="isTempFile(img) ? img : getImageUrl(img)" mode="aspectFill"></image>
+								<view class="image-remove" @click="!submitting && removeImage(index)" :class="{ 'disabled': submitting }">
 									<uni-icons type="close" size="16" color="#fff"></uni-icons>
 								</view>
 							</view>
 
-							<view v-if="localImages.length < 9" class="upload-btn" @click="chooseImage">
+							<view v-if="localImages.length < 9 && !submitting" class="upload-btn" @click="chooseImage">
 								<text>+</text>
 								<text>选择图片</text>
 							</view>
@@ -75,8 +108,14 @@
 
 			<!-- 提交按钮 - 固定在底部 -->
 			<view class="button-wrapper">
-				<button form-type="submit" class="submit-btn" :class="{ 'edit-btn': isEdit }">
-					{{ isEdit ? '更新服务' : '发布服务' }}
+				<!-- ✅ 移除 form-type="submit"，改用 @click -->
+				<button 
+					class="submit-btn" 
+					:class="{ 'edit-btn': isEdit, 'disabled': submitting }"
+					:disabled="submitting"
+					@click="handleSubmitClick"
+				>
+					{{ submitting ? (isEdit ? '更新中...' : '发布中...') : (isEdit ? '更新服务' : '发布服务') }}
 				</button>
 			</view>
 		</form>
@@ -131,6 +170,12 @@ const schoolId = ref('')
 const schoolName = ref('')
 const localImages = ref([])
 
+// ==================== 错误信息 ====================
+const titleError = ref('')
+const descriptionError = ref('')
+const priceError = ref('')
+const contactError = ref('')
+
 // ==================== 提交中状态（防止重复提交） ====================
 const submitting = ref(false)
 
@@ -148,9 +193,257 @@ const originalData = ref({
 	price: '',
 	contact: '',
 	schoolId: '',
+	schoolName: '',
 	categoryId: '',
 	images: []
 })
+
+// ==================== 辅助函数：判断是否为临时文件 ====================
+const isTempFile = (img) => {
+	if (!img) return false
+	
+	// 1. App 环境：file:// 开头的本地路径
+	if (img.startsWith('file://')) return true
+	
+	// 2. 小程序临时文件：wxfile:// 或 http://tmp
+	if (img.startsWith('wxfile://')) return true
+	if (img.startsWith('http://tmp')) return true
+	
+	// 3. H5 临时文件：blob:http://
+	if (img.startsWith('blob:')) return true
+	
+	// 4. 其他临时路径
+	if (img.startsWith('/tmp') || img.includes('tmp')) return true
+	
+	return false
+}
+
+// ==================== 计算有效描述长度（排除无意义字符） ====================
+const validDescriptionLength = computed(() => {
+	return getValidTextLength(description.value)
+})
+
+// ==================== 获取有效文本长度（排除标点、空格、特殊符号） ====================
+const getValidTextLength = (text) => {
+	if (!text) return 0
+	
+	// 移除空格、标点符号、特殊字符，只保留中英文、数字
+	const validChars = text.replace(/[\s\p{P}\p{S}]/gu, '')
+	return validChars.length
+}
+
+// ==================== 检查是否包含有意义的中文或英文 ====================
+const hasMeaningfulContent = (text) => {
+	if (!text) return false
+	
+	// 检查是否包含至少2个中文字符或3个英文字母
+	const chineseCount = (text.match(/[\u4e00-\u9fa5]/g) || []).length
+	const englishCount = (text.match(/[a-zA-Z]/g) || []).length
+	
+	return chineseCount >= 2 || englishCount >= 3
+}
+
+// ==================== 检查是否全是重复字符 ====================
+const isAllRepeatedChars = (text) => {
+	if (!text) return false
+	
+	// 移除空格后检查
+	const trimmed = text.replace(/\s/g, '')
+	if (trimmed.length < 2) return false
+	
+	// 检查是否所有字符都相同
+	const firstChar = trimmed[0]
+	return trimmed.split('').every(char => char === firstChar)
+}
+
+// ==================== 检查是否是无意义的标点组合 ====================
+const isMeaninglessPunctuation = (text) => {
+	if (!text) return false
+	
+	// 移除空格后，检查是否只包含标点符号
+	const trimmed = text.replace(/\s/g, '')
+	const withoutPunctuation = trimmed.replace(/[\p{P}\p{S}]/gu, '')
+	
+	// 如果没有字母数字中文，说明全是标点
+	return withoutPunctuation.length === 0
+}
+
+// ==================== 验证标题 ====================
+const validateTitle = () => {
+	const trimmedTitle = title.value?.trim() || ''
+	
+	// 1. 空值检查
+	if (!trimmedTitle) {
+		titleError.value = '请输入服务标题'
+		return false
+	}
+	
+	// 2. 长度检查
+	if (trimmedTitle.length < 2) {
+		titleError.value = '标题至少需要2个字符'
+		return false
+	}
+	
+	if (trimmedTitle.length > 50) {
+		titleError.value = '标题不能超过50个字符'
+		return false
+	}
+	
+	// 3. 检查是否全是数字
+	if (/^\d+$/.test(trimmedTitle)) {
+		titleError.value = '标题不能全是数字，请添加文字描述'
+		return false
+	}
+	
+	// 4. 检查是否全是重复字符
+	if (isAllRepeatedChars(trimmedTitle)) {
+		titleError.value = '标题不能全是重复字符'
+		return false
+	}
+	
+	// 5. 检查是否是无意义标点
+	if (isMeaninglessPunctuation(trimmedTitle)) {
+		titleError.value = '标题不能只包含标点符号'
+		return false
+	}
+	
+	// 6. 检查是否有意义内容
+	if (!hasMeaningfulContent(trimmedTitle)) {
+		titleError.value = '请输入有意义的标题（至少2个中文或3个英文字母）'
+		return false
+	}
+	
+	titleError.value = ''
+	return true
+}
+
+// ==================== 验证描述 ====================
+const validateDescription = () => {
+	const trimmedDesc = description.value?.trim() || ''
+	
+	// 1. 空值检查
+	if (!trimmedDesc) {
+		descriptionError.value = '请输入服务描述'
+		return false
+	}
+	
+	// 2. 有效字符长度检查
+	const validLength = getValidTextLength(trimmedDesc)
+	if (validLength < 10) {
+		descriptionError.value = `描述至少需要10个有效字符（当前${validLength}个）`
+		return false
+	}
+	
+	// 3. 检查是否全是数字
+	if (/^\d+$/.test(trimmedDesc)) {
+		descriptionError.value = '描述不能全是数字'
+		return false
+	}
+	
+	// 4. 检查是否全是重复字符
+	if (isAllRepeatedChars(trimmedDesc)) {
+		descriptionError.value = '描述不能全是重复字符'
+		return false
+	}
+	
+	// 5. 检查是否是无意义标点
+	if (isMeaninglessPunctuation(trimmedDesc)) {
+		descriptionError.value = '描述不能只包含标点符号'
+		return false
+	}
+	
+	// 6. 检查是否有意义内容
+	if (!hasMeaningfulContent(trimmedDesc)) {
+		descriptionError.value = '请详细描述服务内容，至少包含2个中文或3个英文字母'
+		return false
+	}
+	
+	descriptionError.value = ''
+	return true
+}
+
+// ==================== 验证价格 ====================
+const validatePrice = () => {
+	const priceValue = price.value?.trim() || ''
+	
+	// 1. 空值检查
+	if (!priceValue) {
+		priceError.value = '请输入价格'
+		return false
+	}
+	
+	// 2. 数字格式检查
+	const numPrice = parseFloat(priceValue)
+	if (isNaN(numPrice)) {
+		priceError.value = '价格必须是有效数字'
+		return false
+	}
+	
+	// 3. 范围检查
+	if (numPrice <= 0) {
+		priceError.value = '价格必须大于0'
+		return false
+	}
+	
+	if (numPrice < 0.01) {
+		priceError.value = '价格不能低于0.01元'
+		return false
+	}
+	
+	if (numPrice > 99999) {
+		priceError.value = '价格不能超过99999元'
+		return false
+	}
+	
+	// 4. 小数位检查
+	const decimalPart = priceValue.split('.')[1]
+	if (decimalPart && decimalPart.length > 2) {
+		priceError.value = '价格最多保留两位小数'
+		return false
+	}
+	
+	priceError.value = ''
+	return true
+}
+
+// ==================== 验证联系方式 ====================
+const validateContact = () => {
+	const trimmedContact = contact.value?.trim() || ''
+	
+	// 1. 空值检查
+	if (!trimmedContact) {
+		contactError.value = '请输入联系方式'
+		return false
+	}
+	
+	// 2. 长度检查
+	if (trimmedContact.length < 5) {
+		contactError.value = '请输入有效的联系方式'
+		return false
+	}
+	
+	// 3. 检查是否全是重复字符
+	if (isAllRepeatedChars(trimmedContact)) {
+		contactError.value = '联系方式不能全是重复字符'
+		return false
+	}
+	
+	// 4. 检查是否包含联系方式特征（手机号/微信/QQ）
+	const hasPhone = /^1[3-9]\d{9}$/.test(trimmedContact)
+	const hasWechat = /^[a-zA-Z][a-zA-Z0-9_-]{5,19}$/.test(trimmedContact)
+	const hasQQ = /^[1-9]\d{4,10}$/.test(trimmedContact)
+	
+	if (!hasPhone && !hasWechat && !hasQQ) {
+		// 不强制完全匹配，但给出提示
+		contactError.value = ''
+		// 可以添加警告，但不阻止提交
+		// contactError.value = '请输入有效的手机号/微信号/QQ号'
+		// return false
+	}
+	
+	contactError.value = ''
+	return true
+}
 
 // ==================== 计算属性：是否有修改 ====================
 const hasChanges = computed(() => {
@@ -239,6 +532,8 @@ const loadCategories = async () => {
 
 // ==================== 分类选择器事件 ====================
 const onCategoryColumnChange = (e) => {
+	if (submitting.value) return
+	
 	const column = e.detail.column
 	const index = e.detail.value
 
@@ -268,6 +563,8 @@ const onCategoryColumnChange = (e) => {
 }
 
 const onCategoryPickerChange = (e) => {
+	if (submitting.value) return
+	
 	const value = e.detail.value
 	categoryPickerIndex.value = value
 
@@ -284,6 +581,8 @@ const onCategoryPickerChange = (e) => {
 
 // ==================== 学校选择 ====================
 const chooseSchool = () => {
+	if (submitting.value) return
+	
 	uni.navigateTo({
 		url: '/pages/school-search/school-search?from=publish'
 	})
@@ -307,6 +606,8 @@ const removeSchoolListener = () => {
 
 // ==================== 图片上传 ====================
 const chooseImage = () => {
+	if (submitting.value) return
+	
 	const maxCount = 9 - localImages.value.length
 	if (maxCount <= 0) {
 		uni.showToast({
@@ -327,6 +628,7 @@ const chooseImage = () => {
 }
 
 const removeImage = (index) => {
+	if (submitting.value) return
 	localImages.value.splice(index, 1)
 }
 
@@ -379,8 +681,9 @@ const loadServiceDetail = async () => {
 			price: String(res.price),
 			contact: res.contact,
 			schoolId: res.school?.id || '',
+			schoolName: res.school?.name || '',
 			categoryId: res.category?.id || '',
-			images: [...(res.images || [])]  // ✅ 使用展开运算符，确保是独立副本
+			images: [...(res.images || [])]
 		}
 
 		if (res.category) {
@@ -404,38 +707,42 @@ const loadServiceDetail = async () => {
 
 // ==================== 表单验证 ====================
 const validateForm = () => {
+	// 清除所有错误
+	titleError.value = ''
+	descriptionError.value = ''
+	priceError.value = ''
+	contactError.value = ''
+	
+	// 1. 验证分类
 	if (!categoryId.value) {
 		uni.showToast({ title: '请选择服务分类', icon: 'none' })
 		return false
 	}
-	if (!title.value?.trim()) {
-		uni.showToast({ title: '请输入服务标题', icon: 'none' })
+	
+	// 2. 验证标题
+	if (!validateTitle()) {
+		uni.showToast({ title: titleError.value, icon: 'none' })
 		return false
 	}
-	if (title.value.length < 2 || title.value.length > 50) {
-		uni.showToast({ title: '服务标题长度必须在2-50字之间', icon: 'none' })
+	
+	// 3. 验证描述
+	if (!validateDescription()) {
+		uni.showToast({ title: descriptionError.value, icon: 'none' })
 		return false
 	}
-	if (!description.value?.trim()) {
-		uni.showToast({ title: '请输入服务描述', icon: 'none' })
+	
+	// 4. 验证价格
+	if (!validatePrice()) {
+		uni.showToast({ title: priceError.value, icon: 'none' })
 		return false
 	}
-	if (description.value.length < 10) {
-		uni.showToast({ title: '服务描述至少10个字', icon: 'none' })
+	
+	// 5. 验证联系方式
+	if (!validateContact()) {
+		uni.showToast({ title: contactError.value, icon: 'none' })
 		return false
 	}
-	if (!price.value) {
-		uni.showToast({ title: '请输入价格', icon: 'none' })
-		return false
-	}
-	if (isNaN(price.value) || Number(price.value) <= 0) {
-		uni.showToast({ title: '价格必须是大于0的数字', icon: 'none' })
-		return false
-	}
-	if (!contact.value?.trim()) {
-		uni.showToast({ title: '请输入联系方式', icon: 'none' })
-		return false
-	}
+	
 	return true
 }
 
@@ -448,61 +755,77 @@ const resetForm = () => {
 	schoolId.value = ''
 	schoolName.value = ''
 	localImages.value = []
+	
+	// 清除错误
+	titleError.value = ''
+	descriptionError.value = ''
+	priceError.value = ''
+	contactError.value = ''
 
+	// 重置分类为第一个
 	if (categoryList.value.length > 0) {
 		const firstParent = categoryList.value[0]
 		if (firstParent.children?.length > 0) {
 			categoryId.value = firstParent.children[0].id
 			categoryName.value = firstParent.children[0].name
+			categoryPickerIndex.value = [0, 0]
+			
+			// 重置二级分类列
+			const childNames = firstParent.children.map(c => c.name)
+			categoryColumns.value = [categoryColumns.value[0], childNames]
 		}
 	}
-	categoryPickerIndex.value = [0, 0]
+}
+
+// ==================== 按钮点击处理 ====================
+const handleSubmitClick = () => {
+	// 如果正在提交，直接拦截
+	if (submitting.value) {
+		console.log('重复提交被拦截')
+		return
+	}
+	
+	// ✅ 立即设置为 true，防止后续点击
+	submitting.value = true
+	
+	// 调用提交逻辑
+	handleSubmit()
 }
 
 // ==================== 提交表单 ====================
 const handleSubmit = async () => {
-    // 防止重复提交
-    if (submitting.value) {
+    if (!validateForm()) {
+        // ✅ 验证失败，重置 submitting
+        submitting.value = false
         return
     }
-    
-    if (!validateForm()) return
 
     // 编辑模式下检查是否有修改
     if (props.isEdit && !hasChanges.value) {
         uni.showToast({ title: '没有检测到任何修改', icon: 'none' })
+        // ✅ 没有修改，重置 submitting
+        submitting.value = false
         return
     }
 
-    if (!checkLogin({ action: 'publish' })) return
+    if (!checkLogin({ action: 'publish' })) {
+        // ✅ 未登录，重置 submitting
+        submitting.value = false
+        return
+    }
 
-    submitting.value = true
     uni.showLoading({ title: props.isEdit ? '更新中...' : '发布中...', mask: true })
 
     try {
         let imagesString = ''
         let needDeleteOldImages = false
 
-        // ✅ 修复：正确检测临时文件
-        const hasNewImages = localImages.value.some(img => {
-            if (!img) return false
-            // 小程序临时文件：wxfile:// 或 http://tmp
-            // H5临时文件：blob:http:// 或以 /tmp 开头
-            return img.startsWith('wxfile://') || 
-                   img.startsWith('blob:') || 
-                   img.startsWith('/tmp') ||
-                   img.includes('tmp')
-        })
+        // 使用统一的 isTempFile 函数
+        const hasNewImages = localImages.value.some(isTempFile)
 
         if (localImages.value.length > 0 && hasNewImages) {
-            // 筛选出未上传的临时文件
-            const newImages = localImages.value.filter(img => {
-                if (!img) return false
-                return img.startsWith('wxfile://') || 
-                       img.startsWith('blob:') || 
-                       img.startsWith('/tmp') ||
-                       img.includes('tmp')
-            })
+            // 筛选出需要上传的临时文件
+            const newImages = localImages.value.filter(isTempFile)
             
             // 上传新图片到COS
             const urls = await uploadServiceImages(newImages)
@@ -510,9 +833,7 @@ const handleSubmit = async () => {
             // 保留已上传的图片（COS URL）
             const oldImages = localImages.value.filter(img => {
                 if (!img) return false
-                return img.startsWith('http') && 
-                       !img.startsWith('wxfile://') && 
-                       !img.includes('tmp')
+                return img.startsWith('http') && !isTempFile(img)
             })
             
             imagesString = [...oldImages, ...urls].join(',')
@@ -532,10 +853,9 @@ const handleSubmit = async () => {
             delete_old_images: needDeleteOldImages
         }
 
-        uni.hideLoading()
-
         if (props.isEdit) {
             await updateService(props.serviceId, submitData)
+            uni.hideLoading()
             uni.showToast({ title: '更新成功待审核', icon: 'success', duration: 2000 })
             
             setTimeout(() => {
@@ -548,11 +868,12 @@ const handleSubmit = async () => {
             }, 2000)
         } else {
             await publishService(submitData)
-            uni.showToast({ title: '发布成功待审核', icon: 'success', duration: 2000 })
             
-            setTimeout(() => {
-                resetForm()
-            }, 2000)
+            // 先清空表单，再关闭 loading 和显示成功提示
+            resetForm()
+            
+            uni.hideLoading()
+            uni.showToast({ title: '发布成功待审核', icon: 'success', duration: 2000 })
         }
 
     } catch (err) {
@@ -560,7 +881,10 @@ const handleSubmit = async () => {
         uni.hideLoading()
         uni.showToast({ title: err.message || '操作失败', icon: 'none' })
     } finally {
-        submitting.value = false
+        // 延迟重置 submitting，确保 Toast 显示期间按钮保持禁用
+        setTimeout(() => {
+            submitting.value = false
+        }, 500)
     }
 }
 
@@ -660,6 +984,19 @@ defineExpose({
 		padding: 20rpx;
 		font-size: 28rpx;
 		box-sizing: border-box;
+	}
+
+	.char-count {
+		text-align: right;
+		font-size: 24rpx;
+		color: #999;
+		margin-top: 10rpx;
+	}
+
+	.error-tip {
+		font-size: 24rpx;
+		color: #ff4d4f;
+		margin-top: 10rpx;
 	}
 
 	.selector {

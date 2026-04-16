@@ -58,3 +58,11 @@ export const deleteOrder = (id) => {
 		method: 'DELETE'
 	})
 }
+
+// 主动查询支付状态
+export const queryPayStatus = (id) => {
+	return request({
+		url: `/orders/${id}/query-pay`,
+		method: 'POST'
+	})
+}

@@ -1,16 +1,22 @@
 // utils/config.js
 
 // 服务器基础地址
-const SERVER_URL = 'https://campusskill.top'
+const SERVER_URL = 'http://114.132.89.130:3000'
 
-// #ifdef MP-WEIXIN
-// 小程序环境
-const baseUrl = SERVER_URL
-// #endif
+// 为所有环境提供一个默认的 baseUrl
+let baseUrl = SERVER_URL
 
 // #ifdef H5
-// H5环境
-const baseUrl = 'http://localhost:3000'
+baseUrl = 'http://114.132.89.130:3000'
+// #endif
+
+// #ifdef MP-WEIXIN
+baseUrl = SERVER_URL
+// #endif
+
+// #ifdef APP-PLUS
+// Android/iOS App 环境
+baseUrl = SERVER_URL
 // #endif
 
 export const config = {

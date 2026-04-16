@@ -1,62 +1,62 @@
 <template>
 	<view class="container">
 		<view class="form-card">
-			<!-- 旧密码 -->
-			<view class="form-item">
-				<text class="label">旧密码</text>
-				<view class="input-wrapper">
-					<input 
-						:type="showOldPassword ? 'text' : 'password'"
-						v-model="form.oldPassword" 
-						placeholder="请输入旧密码"
-						placeholder-class="placeholder"
-					/>
-					<uni-icons 
-						:type="showOldPassword ? 'eye-filled' : 'eye-slash-filled'" 
-						size="20" 
-						color="#999"
-						@click="toggleOldPassword"
-					></uni-icons>
-				</view>
+			<!-- 3. 密码 -->
+			<view class="input-item">
+			  <!-- 隐藏密码状态 -->
+			  <input 
+			    v-if="!showPassword"
+			    class="input" 
+			    v-model="form.password" 
+			    type="password"
+			    placeholder="密码"
+			    placeholder-class="placeholder-style"
+			  >
+			  <!-- 显示密码状态 -->
+			  <input 
+			    v-else
+			    class="input" 
+			    v-model="form.password" 
+			    type="text"
+			    placeholder="密码"
+			    placeholder-class="placeholder-style"
+			  >
+			  <uni-icons 
+			    :type="showPassword ? 'eye-filled' : 'eye-slash-filled'" 
+			    size="24" 
+			    color="#999999"
+			    @click="toggleShowPassword"
+			    class="eye-icon"
+			  ></uni-icons>
 			</view>
 			
-			<!-- 新密码 -->
-			<view class="form-item">
-				<text class="label">新密码</text>
-				<view class="input-wrapper">
-					<input 
-						:type="showNewPassword ? 'text' : 'password'"
-						v-model="form.newPassword" 
-						placeholder="6-20位新密码"
-						placeholder-class="placeholder"
-					/>
-					<uni-icons 
-						:type="showNewPassword ? 'eye-filled' : 'eye-slash-filled'" 
-						size="20" 
-						color="#999"
-						@click="toggleNewPassword"
-					></uni-icons>
-				</view>
-				<text class="tip">密码长度6-20位</text>
-			</view>
-			
-			<!-- 确认新密码 -->
-			<view class="form-item">
-				<text class="label">确认新密码</text>
-				<view class="input-wrapper">
-					<input 
-						:type="showConfirmPassword ? 'text' : 'password'"
-						v-model="form.confirmPassword" 
-						placeholder="再次输入新密码"
-						placeholder-class="placeholder"
-					/>
-					<uni-icons 
-						:type="showConfirmPassword ? 'eye-filled' : 'eye-slash-filled'" 
-						size="20" 
-						color="#999"
-						@click="toggleConfirmPassword"
-					></uni-icons>
-				</view>
+			<!-- 4. 确认密码 -->
+			<view class="input-item">
+			  <!-- 隐藏确认密码状态 -->
+			  <input 
+			    v-if="!showConfirmPassword"
+			    class="input" 
+			    v-model="form.confirmPassword"
+			    type="password"
+			    placeholder="确认密码"
+			    placeholder-class="placeholder-style"
+			  >
+			  <!-- 显示确认密码状态 -->
+			  <input 
+			    v-else
+			    class="input" 
+			    v-model="form.confirmPassword"
+			    type="text"
+			    placeholder="确认密码"
+			    placeholder-class="placeholder-style"
+			  >
+			  <uni-icons 
+			    :type="showConfirmPassword ? 'eye-filled' : 'eye-slash-filled'" 
+			    size="24" 
+			    color="#999999"
+			    @click="toggleShowConfirmPassword"
+			    class="eye-icon"
+			  ></uni-icons>
 			</view>
 			
 			<!-- 密码强度提示（可选） -->

@@ -164,10 +164,43 @@ const getServiceList = async (req, res) => {
             queryParams.push(school_id)
         }
 
-        // 按关键词搜索
+        // ========== 智能关键词搜索 ==========
         if (keyword) {
-            whereConditions.push('(s.title LIKE ? OR s.description LIKE ?)')
-            queryParams.push(`%${keyword}%`, `%${keyword}%`)
+            const trimmedKeyword = keyword.trim()
+            let keywordConditions = []
+
+            // 1. 基础搜索：标题、描述
+            keywordConditions.push('(s.title LIKE ? OR s.description LIKE ?)')
+            queryParams.push(`%${trimmedKeyword}%`, `%${trimmedKeyword}%`)
+
+            // 2. 搜索学校名称
+            keywordConditions.push('sc.name LIKE ?')
+            queryParams.push(`%${trimmedKeyword}%`)
+
+            // 3. 搜索学校城市/省份
+            keywordConditions.push('sc.city LIKE ? OR sc.province LIKE ?')
+            queryParams.push(`%${trimmedKeyword}%`, `%${trimmedKeyword}%`)
+
+            // 4. 搜索分类名称
+            keywordConditions.push('c.name LIKE ?')
+            queryParams.push(`%${trimmedKeyword}%`)
+
+            // 5. 搜索用户昵称
+            keywordConditions.push('u.nickname LIKE ?')
+            queryParams.push(`%${trimmedKeyword}%`)
+
+            // 6. 分词搜索（支持组合搜索如"北京PPT"）
+            const words = trimmedKeyword.split(/[\s,，、]+/).filter(w => w.length >= 2)
+            if (words.length > 1) {
+                words.forEach(word => {
+                    keywordConditions.push(
+                        '(s.title LIKE ? OR s.description LIKE ? OR sc.name LIKE ? OR c.name LIKE ?)'
+                    )
+                    queryParams.push(`%${word}%`, `%${word}%`, `%${word}%`, `%${word}%`)
+                })
+            }
+
+            whereConditions.push(`(${keywordConditions.join(' OR ')})`)
         }
 
         //构建where子句

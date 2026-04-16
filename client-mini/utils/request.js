@@ -41,6 +41,7 @@ export const request = (options, retryCount = 3) => {
             url: config.baseUrl + '/api' + options.url,
             method: options.method || 'GET',
             data: options.data || {},
+			timeout: 15000,
             header: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + uni.getStorageSync('token')
@@ -64,7 +65,7 @@ export const request = (options, retryCount = 3) => {
                         request(options, retryCount - 1)
                             .then(resolve)
                             .catch(reject)
-                    }, 1000) // 等待1秒后重试
+                    }, 2000) // 等待2秒后重试
                 } else {
                     // 重试次数用完，真正报错
                     uni.showToast({

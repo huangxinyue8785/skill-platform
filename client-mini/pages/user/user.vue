@@ -78,29 +78,30 @@
 		<!-- 更多服务 -->
 		<view class="section">
 			<view class="list">
-				<!-- 联系客服 (非小程序端) -->
-				<view class="row" @click="handleContact" v-if="!isMP">
-				    <view class="left">
-				        <uni-icons type="chat" size="20" color="#333"></uni-icons>
-				        <text class="text">联系客服</text>
-				    </view>
-				    <view class="right">
-				        <uni-icons type="arrowright" size="15" color="#aaa"></uni-icons>
-				    </view>
+				<!-- 联系客服 (H5和APP端) -->
+				<!-- #ifdef H5 || APP-PLUS -->
+				<view class="row" @click="handleContact">
+					<view class="left">
+						<uni-icons type="chat" size="20" color="#333"></uni-icons>
+						<text class="text">联系客服</text>
+					</view>
+					<view class="right">
+						<uni-icons type="arrowright" size="15" color="#aaa"></uni-icons>
+					</view>
 				</view>
-				
-				<!-- 联系客服 (小程序端) -->
-				<!-- #ifdef MP -->
-				<view class="row" style="position: relative;">
-				    <view class="left">
-				        <uni-icons type="chat" size="20" color="#333"></uni-icons>
-				        <text class="text">联系客服</text>
-				    </view>
-				    <view class="right">
-				        <uni-icons type="arrowright" size="15" color="#aaa"></uni-icons>
-				    </view>
-				    <button open-type="contact" class="contact-btn"></button>
-				</view>
+				<!-- #endif -->
+
+				<!-- 联系客服 (微信小程序端) -->
+				<!-- #ifdef MP-WEIXIN -->
+				<button class="row contact-row" open-type="contact" @contact="handleContactCallback">
+					<view class="left">
+						<uni-icons type="chat" size="20" color="#333"></uni-icons>
+						<text class="text">联系客服</text>
+					</view>
+					<view class="right">
+						<uni-icons type="arrowright" size="15" color="#aaa"></uni-icons>
+					</view>
+				</button>
 				<!-- #endif -->
 
 				<!-- 设置 -->
@@ -129,31 +130,49 @@ import { onShow } from '@dcloudio/uni-app'
 import { getNavBarHeight } from "@/utils/system.js"
 import { useUserStore } from '@/stores/user.js'
 import { getUserInfo } from '@/api/user.js'
-import { checkLogin } from '@/utils/auth'  // 导入 auth.js 的 checkLogin
-import { getImageUrl } from '@/utils/request.js'  // 加上这行
-
-// 添加判断是否是小程序环境
-const isMP = ref(false)
-// #ifdef MP
-isMP.value = true
-// #endif
-
-// 添加客服处理方法
-const handleContact = () => {
-    // #ifndef MP
-    uni.makePhoneCall({
-        phoneNumber: "18898860375" // 换成您的客服电话
-    }).catch(() => {
-        uni.showToast({
-            title: '拨打失败',
-            icon: 'none'
-        })
-    })
-    // #endif
-}
+import { checkLogin } from '@/utils/auth'
+import { getImageUrl } from '@/utils/request.js'
 
 const userStore = useUserStore()
 const loading = ref(false)
+
+// 客服电话
+const SERVICE_PHONE = '18898860375'
+
+// 客服处理方法（H5和APP端）
+const handleContact = () => {
+	uni.showModal({
+		title: '联系客服',
+		content: `客服电话：${SERVICE_PHONE}`,
+		confirmText: '复制号码',
+		cancelText: '取消',
+		success: (res) => {
+			if (res.confirm) {
+				uni.setClipboardData({
+					data: SERVICE_PHONE,
+					success: () => {
+						uni.showToast({
+							title: '号码已复制',
+							icon: 'success',
+							duration: 2000
+						})
+					},
+					fail: () => {
+						uni.showToast({
+							title: '复制失败',
+							icon: 'none'
+						})
+					}
+				})
+			}
+		}
+	})
+}
+
+// 微信小程序客服消息回调
+const handleContactCallback = (e) => {
+	console.log('客服消息回调', e)
+}
 
 // 加载用户最新信息
 const loadUserInfo = async () => {
@@ -191,22 +210,21 @@ const goToProfile = () => {
 
 // 我的发布
 const goToMyPublish = () => {
-	if (!checkLogin()) return  // 使用 auth.js 的 checkLogin
+	if (!checkLogin()) return
 	uni.navigateTo({ url: '/pages/my-publish/my-publish' })
 }
 
 // 我的订单
 const goToMyOrders = () => {
-	if (!checkLogin()) return  // 使用 auth.js 的 checkLogin
+	if (!checkLogin()) return
 	uni.navigateTo({ url: '/pages/my-orders/my-orders' })
 }
 
 // 我的收藏
 const goToMyFavorites = () => {
-	if (!checkLogin()) return  // 使用 auth.js 的 checkLogin
+	if (!checkLogin()) return
 	uni.navigateTo({ url: '/pages/my-favorites/my-favorites' })
 }
-
 
 // 设置
 const goToSettings = () => {
@@ -319,6 +337,50 @@ const handleLogout = () => {
 					}
 				}
 			}
+			
+			// 客服按钮样式（覆盖 button 默认样式）
+			.contact-row {
+				display: flex !important;
+				justify-content: space-between !important;
+				align-items: center !important;
+				padding: 0 30rpx !important;
+				height: 100rpx !important;
+				width: 100% !important;
+				background: #fff !important;
+				border: none !important;
+				border-radius: 0 !important;
+				line-height: 1 !important;
+				font-size: inherit !important;
+				margin: 0 !important;
+				border-bottom: 1px solid #f5f5f5 !important;
+				
+				// 移除 button 的默认边框和背景
+				&::after {
+					display: none !important;
+				}
+				
+				.left {
+					display: flex;
+					align-items: center;
+					
+					.text {
+						font-size: 30rpx;
+						color: #333;
+						margin-left: 20rpx;
+					}
+				}
+				
+				.right {
+					display: flex;
+					align-items: center;
+					
+					.text {
+						font-size: 28rpx;
+						color: #999;
+						margin-right: 10rpx;
+					}
+				}
+			}
 		}
 	}
 
@@ -342,14 +404,5 @@ const handleLogout = () => {
 .loadingLayout {
 	min-height: 100vh;
 	background-color: #f5f5f5;
-}
-
-.contact-btn {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100rpx;
-    opacity: 0;
 }
 </style>

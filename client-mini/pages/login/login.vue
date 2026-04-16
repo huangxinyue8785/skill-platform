@@ -17,10 +17,31 @@
 						placeholder-class="placeholder-style">
 				</view>
 				<view class="input-item">
-					<input class="input" v-model="password" :type="showPassword ? 'text' : 'password'"
-						:password="!showPassword" placeholder="密码" placeholder-class="placeholder-style">
-					<uni-icons :type="showPassword ? 'eye-filled' : 'eye-slash-filled'" size="24" color="#999999"
-						@click="toggleShowPassword" class="eye-icon"></uni-icons>
+				  <!-- 隐藏密码状态 -->
+				  <input 
+				    v-if="!showPassword"
+				    class="input" 
+				    v-model="password" 
+				    type="password"
+				    placeholder="密码" 
+				    placeholder-class="placeholder-style"
+				  >
+				  <!-- 显示密码状态 -->
+				  <input 
+				    v-else
+				    class="input" 
+				    v-model="password" 
+				    type="text"
+				    placeholder="密码" 
+				    placeholder-class="placeholder-style"
+				  >
+				  <uni-icons 
+				    :type="showPassword ? 'eye-filled' : 'eye-slash-filled'" 
+				    size="24" 
+				    color="#999999"
+				    @click="toggleShowPassword"
+				    class="eye-icon"
+				  ></uni-icons>
 				</view>
 
 				<view class="forgot-password">

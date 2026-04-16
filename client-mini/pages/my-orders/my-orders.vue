@@ -66,14 +66,16 @@
 						<template v-if="currentRole === 'buyer'">
 							<button v-if="order.status === 0" class="action-btn pay-btn" @click="handlePay(order)">去支付</button>
 							<button v-if="order.status === 0" class="action-btn cancel-btn" @click="handleCancel(order)">取消订单</button>
-							<button v-if="order.status === 1" class="action-btn contact-btn" open-type="contact">联系卖家</button>
+							<!-- ✅ 修改：联系卖家按钮跳转到聊天页面 -->
+							<button v-if="order.status === 1" class="action-btn contact-btn" @click="handleContact(order)">联系卖家</button>
 							<button v-if="order.status === 2" class="action-btn comment-btn" @click="handleComment(order)">去评价</button>
 						</template>
 
 						<!-- 卖家操作 -->
 						<template v-else>
 							<button v-if="order.status === 1" class="action-btn complete-btn" @click="handleComplete(order)">标记完成</button>
-							<button v-if="order.status === 1" class="action-btn contact-btn" open-type="contact">联系买家</button>
+							<!-- ✅ 修改：联系买家按钮跳转到聊天页面 -->
+							<button v-if="order.status === 1" class="action-btn contact-btn" @click="handleContact(order)">联系买家</button>
 						</template>
 
 						<!-- 通用操作：删除订单 -->
@@ -302,6 +304,36 @@ const handleDelete = async (order) => {
 // ==================== 去评价 ====================
 const handleComment = (order) => {
 	uni.showToast({ title: '开发中', icon: 'none' })
+}
+
+// ==================== 联系对方（跳转到聊天页面） ====================
+const handleContact = (order) => {
+	// 根据当前角色确定对方的用户ID和昵称
+	let targetUserId = ''
+	let targetNickname = ''
+	let targetAvatar = ''
+	
+	if (currentRole.value === 'buyer') {
+		// 我是买家，联系卖家
+		targetUserId = order.seller?.id
+		targetNickname = order.seller?.nickname || '卖家'
+		targetAvatar = order.seller?.avatar || ''
+	} else {
+		// 我是卖家，联系买家
+		targetUserId = order.buyer?.id
+		targetNickname = order.buyer?.nickname || '买家'
+		targetAvatar = order.buyer?.avatar || ''
+	}
+	
+	if (!targetUserId) {
+		uni.showToast({ title: '无法获取对方信息', icon: 'none' })
+		return
+	}
+	
+	// 跳转到聊天页面
+	uni.navigateTo({
+		url: `/pages/chat/chat?userId=${targetUserId}&nickname=${encodeURIComponent(targetNickname)}&avatar=${encodeURIComponent(targetAvatar)}`
+	})
 }
 
 // ==================== 去首页 ====================
