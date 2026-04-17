@@ -1,80 +1,103 @@
 <template>
 	<view class="container">
 		<view class="form-card">
-			<!-- 3. 密码 -->
-			<view class="input-item">
-			  <!-- 隐藏密码状态 -->
-			  <input 
-			    v-if="!showPassword"
-			    class="input" 
-			    v-model="form.password" 
-			    type="password"
-			    placeholder="密码"
-			    placeholder-class="placeholder-style"
-			  >
-			  <!-- 显示密码状态 -->
-			  <input 
-			    v-else
-			    class="input" 
-			    v-model="form.password" 
-			    type="text"
-			    placeholder="密码"
-			    placeholder-class="placeholder-style"
-			  >
-			  <uni-icons 
-			    :type="showPassword ? 'eye-filled' : 'eye-slash-filled'" 
-			    size="24" 
-			    color="#999999"
-			    @click="toggleShowPassword"
-			    class="eye-icon"
-			  ></uni-icons>
+			<!-- 1. 旧密码 -->
+			<view class="form-item">
+				<text class="label">旧密码</text>
+				<view class="input-item">
+					<input 
+						v-if="!showOldPassword"
+						class="input" 
+						v-model="form.oldPassword" 
+						type="password"
+						placeholder="请输入旧密码"
+						placeholder-class="placeholder-style"
+					>
+					<input 
+						v-else
+						class="input" 
+						v-model="form.oldPassword" 
+						type="text"
+						placeholder="请输入旧密码"
+						placeholder-class="placeholder-style"
+					>
+					<uni-icons 
+						:type="showOldPassword ? 'eye-filled' : 'eye-slash-filled'" 
+						size="24" 
+						color="#999999"
+						@click="toggleOldPassword"
+						class="eye-icon"
+					></uni-icons>
+				</view>
+			</view>
+
+			<!-- 2. 新密码 -->
+			<view class="form-item">
+				<text class="label">新密码</text>
+				<view class="input-item">
+					<input 
+						v-if="!showNewPassword"
+						class="input" 
+						v-model="form.newPassword" 
+						type="password"
+						placeholder="请输入新密码"
+						placeholder-class="placeholder-style"
+					>
+					<input 
+						v-else
+						class="input" 
+						v-model="form.newPassword" 
+						type="text"
+						placeholder="请输入新密码"
+						placeholder-class="placeholder-style"
+					>
+					<uni-icons 
+						:type="showNewPassword ? 'eye-filled' : 'eye-slash-filled'" 
+						size="24" 
+						color="#999999"
+						@click="toggleNewPassword"
+						class="eye-icon"
+					></uni-icons>
+				</view>
 			</view>
 			
-			<!-- 4. 确认密码 -->
-			<view class="input-item">
-			  <!-- 隐藏确认密码状态 -->
-			  <input 
-			    v-if="!showConfirmPassword"
-			    class="input" 
-			    v-model="form.confirmPassword"
-			    type="password"
-			    placeholder="确认密码"
-			    placeholder-class="placeholder-style"
-			  >
-			  <!-- 显示确认密码状态 -->
-			  <input 
-			    v-else
-			    class="input" 
-			    v-model="form.confirmPassword"
-			    type="text"
-			    placeholder="确认密码"
-			    placeholder-class="placeholder-style"
-			  >
-			  <uni-icons 
-			    :type="showConfirmPassword ? 'eye-filled' : 'eye-slash-filled'" 
-			    size="24" 
-			    color="#999999"
-			    @click="toggleShowConfirmPassword"
-			    class="eye-icon"
-			  ></uni-icons>
+			<!-- 3. 确认密码 -->
+			<view class="form-item">
+				<text class="label">确认密码</text>
+				<view class="input-item">
+					<input 
+						v-if="!showConfirmPassword"
+						class="input" 
+						v-model="form.confirmPassword"
+						type="password"
+						placeholder="请再次输入新密码"
+						placeholder-class="placeholder-style"
+					>
+					<input 
+						v-else
+						class="input" 
+						v-model="form.confirmPassword"
+						type="text"
+						placeholder="请再次输入新密码"
+						placeholder-class="placeholder-style"
+					>
+					<uni-icons 
+						:type="showConfirmPassword ? 'eye-filled' : 'eye-slash-filled'" 
+						size="24" 
+						color="#999999"
+						@click="toggleConfirmPassword"
+						class="eye-icon"
+					></uni-icons>
+				</view>
 			</view>
 			
-			<!-- 密码强度提示（可选） -->
+			<!-- 密码强度提示 -->
 			<view class="strength-tip" v-if="form.newPassword">
 				<text class="strength-text">密码强度：</text>
 				<view class="strength-bars">
-					<view 
-						class="strength-bar" 
-						:class="getStrengthClass(1)"
-					></view>
-					<view 
-						class="strength-bar" 
-						:class="getStrengthClass(2)"
-					></view>
-					<view 
-						class="strength-bar" 
-						:class="getStrengthClass(3)"
-					></view>
+					<view class="strength-bar" :class="getStrengthClass(1)"></view>
+					<view class="strength-bar" :class="getStrengthClass(2)"></view>
+					<view class="strength-bar" :class="getStrengthClass(3)"></view>
 				</view>
 				<text class="strength-level">{{ strengthLevel }}</text>
 			</view>
@@ -119,22 +142,14 @@ const calculateStrength = computed(() => {
 	
 	let score = 0
 	
-	// 长度>=8 加1分
 	if (pwd.length >= 8) score++
-	
-	// 包含数字 加1分
 	if (/\d/.test(pwd)) score++
-	
-	// 包含字母 加1分
 	if (/[a-zA-Z]/.test(pwd)) score++
-	
-	// 包含特殊字符 加1分
 	if (/[^a-zA-Z0-9]/.test(pwd)) score++
 	
 	return score
 })
 
-// 强度等级文字
 const strengthLevel = computed(() => {
 	const score = calculateStrength.value
 	if (score <= 1) return '弱'
@@ -143,7 +158,6 @@ const strengthLevel = computed(() => {
 	return '非常强'
 })
 
-// 强度条样式
 const getStrengthClass = (index) => {
 	const score = calculateStrength.value
 	if (score >= index) {
@@ -201,7 +215,6 @@ const handleSubmit = async () => {
 		uni.hideLoading()
 		uni.showToast({ title: '密码修改成功', icon: 'success' })
 		
-		// 延迟返回上一页
 		setTimeout(() => {
 			uni.navigateBack()
 		}, 1500)
@@ -219,7 +232,6 @@ const handleSubmit = async () => {
 <style lang="scss" scoped>
 .container {
 	min-height: 80vh;
-	// background-color: #f5f5f5;
 	padding: 30rpx;
 }
 
@@ -240,32 +252,29 @@ const handleSubmit = async () => {
 		display: block;
 		margin-bottom: 16rpx;
 	}
-	
-	.input-wrapper {
-		height: 80rpx;
-		background-color: #f5f5f5;
-		border-radius: 12rpx;
-		padding: 0 20rpx;
-		display: flex;
-		align-items: center;
-		
-		input {
-			flex: 1;
-			font-size: 28rpx;
-			height: 100%;
-		}
-		
-		.placeholder {
-			color: #999;
-			font-size: 28rpx;
-		}
+}
+
+.input-item {
+	border: 1px solid #e5e5e5;
+	border-radius: 12rpx;
+	padding: 20rpx 24rpx;
+	display: flex;
+	align-items: center;
+	background-color: #fff;
+
+	.input {
+		flex: 1;
+		font-size: 28rpx;
 	}
-	
-	.tip {
-		font-size: 22rpx;
+
+	.eye-icon {
+		width: 60rpx;
+		text-align: center;
+	}
+
+	.placeholder-style {
 		color: #999;
-		margin-top: 8rpx;
-		display: block;
+		font-size: 28rpx;
 	}
 }
 
@@ -293,21 +302,10 @@ const handleSubmit = async () => {
 			border-radius: 4rpx;
 			transition: all 0.3s;
 			
-			&.weak {
-				background-color: #f56c6c;
-			}
-			
-			&.medium {
-				background-color: #e6a23c;
-			}
-			
-			&.strong {
-				background-color: #07c160;
-			}
-			
-			&.very-strong {
-				background-color: #3a7cb9;
-			}
+			&.weak { background-color: #f56c6c; }
+			&.medium { background-color: #e6a23c; }
+			&.strong { background-color: #07c160; }
+			&.very-strong { background-color: #3a7cb9; }
 		}
 	}
 	
@@ -326,13 +324,9 @@ const handleSubmit = async () => {
 	border-radius: 45rpx;
 	font-size: 32rpx;
 	font-weight: 500;
+	margin-top: 20rpx;
 	
-	&::after {
-		border: none;
-	}
-	
-	&[disabled] {
-		opacity: 0.5;
-	}
+	&::after { border: none; }
+	&[disabled] { opacity: 0.5; }
 }
 </style>

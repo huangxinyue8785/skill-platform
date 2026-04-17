@@ -12,6 +12,7 @@ const {
     getOrderDetail,
     payOrder,
     alipayNotify,
+    alipayReturn,
     cancelOrder,
     queryPayStatus,
     completeOrder,
@@ -50,6 +51,8 @@ const combinedAuth = (req, res, next) => {
         return res.json(error('token无效或已过期', 401))
     }
 }
+
+router.get('/pay/return', alipayReturn)
 
 // 订单列表：管理员看全部，普通用户看自己的
 router.get('/', combinedAuth, getOrderList)

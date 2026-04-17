@@ -746,14 +746,193 @@ const queryPayStatus = async (req, res) => {
     }
 }
 
+// 支付宝同步回调页面（支付完成后浏览器跳转的页面）
+const alipayReturn = async (req, res) => {
+    const { out_trade_no, total_amount } = req.query
+
+    // 截取订单号后8位显示
+    const shortOrderNo = out_trade_no ? out_trade_no.slice(-8) : ''
+
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+            <title>支付成功</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                    background: #f5f5f5;
+                    min-height: 100vh;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 20px;
+                }
+                .card {
+                    background: #fff;
+                    border-radius: 32px;
+                    padding: 48px 32px;
+                    text-align: center;
+                    max-width: 320px;
+                    width: 100%;
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+                }
+                .check-wrapper {
+                    width: 80px;
+                    height: 80px;
+                    margin: 0 auto 24px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .check-circle {
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 50%;
+                    background: #1677ff;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    animation: scaleIn 0.3s ease-out;
+                }
+                .check-circle svg {
+                    width: 44px;
+                    height: 44px;
+                    stroke: #fff;
+                    stroke-width: 4;
+                    fill: none;
+                    stroke-linecap: round;
+                    stroke-linejoin: round;
+                    animation: drawCheck 0.4s ease-out 0.1s both;
+                }
+                @keyframes scaleIn {
+                    0% { transform: scale(0); opacity: 0; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                @keyframes drawCheck {
+                    0% { stroke-dasharray: 0, 100; stroke-dashoffset: 0; }
+                    100% { stroke-dasharray: 100, 0; stroke-dashoffset: 0; }
+                }
+                .title {
+                    font-size: 28px;
+                    font-weight: 600;
+                    color: #1a1a1a;
+                    margin-bottom: 8px;
+                }
+                .order-no {
+                    font-size: 15px;
+                    color: #8c8c8c;
+                    margin-bottom: 16px;
+                }
+                .amount {
+                    margin-bottom: 32px;
+                }
+                .amount-label {
+                    font-size: 14px;
+                    color: #8c8c8c;
+                    display: block;
+                    margin-bottom: 4px;
+                }
+                .amount-value {
+                    font-size: 40px;
+                    font-weight: 700;
+                    color: #1677ff;
+                }
+                .tip {
+                    font-size: 15px;
+                    color: #1677ff;
+                    background: #e6f4ff;
+                    padding: 14px 16px;
+                    border-radius: 16px;
+                    margin-bottom: 16px;
+                    font-weight: 500;
+                }
+                .hint {
+                    font-size: 13px;
+                    color: #bfbfbf;
+                }
+                .footer {
+                    margin-top: 24px;
+                    padding-top: 20px;
+                    border-top: 1px solid #f0f0f0;
+                    display: flex;
+                    justify-content: center;
+                    gap: 12px;
+                }
+                .brand {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                }
+                .brand-icon {
+                    width: 20px;
+                    height: 20px;
+                    background: #1677ff;
+                    border-radius: 6px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #fff;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+                .brand-text {
+                    font-size: 13px;
+                    color: #8c8c8c;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="check-wrapper">
+                    <div class="check-circle">
+                        <svg viewBox="0 0 24 24">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                </div>
+                <div class="title">支付成功</div>
+                ${shortOrderNo ? `<div class="order-no">订单号 ****${shortOrderNo}</div>` : ''}
+                <div class="amount">
+                    <span class="amount-label">支付金额</span>
+                    <div class="amount-value">￥${total_amount || '0.00'}</div>
+                </div>
+                <div class="tip">请返回应用查看订单状态</div>
+                <div class="hint">页面可安全关闭</div>
+                <div class="footer">
+                    <div class="brand">
+                        <span class="brand-icon">校</span>
+                        <span class="brand-text">校园技能汇</span>
+                    </div>
+                </div>
+            </div>
+            <script>
+                setTimeout(() => {
+                    if (window.WeixinJSBridge) {
+                        WeixinJSBridge.call('closeWindow');
+                    } else {
+                        window.close();
+                    }
+                }, 3000);
+            </script>
+        </body>
+        </html>
+    `)
+}
+
 module.exports = {
     createOrder,
     getOrderList,
     getOrderDetail,
     payOrder,
     alipayNotify,
+    alipayReturn,
     cancelOrder,
     completeOrder,
     deleteOrder,
-    queryPayStatus
+    queryPayStatus,
+
 }

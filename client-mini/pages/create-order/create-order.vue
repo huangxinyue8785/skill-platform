@@ -64,6 +64,8 @@
 						class="textarea"
 						@input="onRequirementsInput"
 					/>
+					<!-- ✅ 显示表情包错误提示 -->
+					<view v-if="emojiError" class="error-tip">{{ emojiError }}</view>
 				</view>
 			</view>
 
@@ -97,22 +99,11 @@
 </template>
 
 <script setup>
-import {
-	ref,
-	computed
-} from 'vue'
-import {
-	onLoad
-} from '@dcloudio/uni-app'
-import {
-	getServiceDetail
-} from '@/api/service.js'
-import {
-	createOrder
-} from '@/api/order.js'
-import {
-	useUserStore
-} from '@/stores/user'
+import { ref, computed } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { getServiceDetail } from '@/api/service.js'
+import { createOrder } from '@/api/order.js'
+import { useUserStore } from '@/stores/user'
 import { checkLogin } from '@/utils/auth'
 import { getImageUrl } from '@/utils/request.js'
 
@@ -129,6 +120,9 @@ const serviceDate = ref('')
 const serviceTime = ref('')
 const requirements = ref('')
 
+// ✅ 表情包错误提示
+const emojiError = ref('')
+
 // 计算最小日期（今天）
 const minDate = computed(() => {
 	const today = new Date()
@@ -138,44 +132,36 @@ const minDate = computed(() => {
 	return `${year}-${month}-${day}`
 })
 
-// 计算最小时间（如果选择的是今天，则不能早于当前时间）
+// 计算最小时间
 const minTime = computed(() => {
 	const today = new Date()
-	const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+	const todayStr = minDate.value
 	
-	// 如果选择的日期是今天，则最小时间为当前时间
 	if (serviceDate.value === todayStr) {
 		const hour = String(today.getHours()).padStart(2, '0')
 		const minute = String(today.getMinutes()).padStart(2, '0')
 		return `${hour}:${minute}`
 	}
-	
-	// 否则可以是任意时间
 	return '00:00'
 })
 
-// 过滤表情符号
-const removeEmoji = (text) => {
-	// 匹配所有 emoji 表情和特殊符号
+// ✅ 检测是否包含表情符号
+const hasEmoji = (text) => {
+	if (!text) return false
 	const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F700}-\u{1F77F}]|[\u{1F780}-\u{1F7FF}]|[\u{1F800}-\u{1F8FF}]|[\u{1F900}-\u{1F9FF}]|[\u{1FA00}-\u{1FA6F}]|[\u{1FA70}-\u{1FAFF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{2300}-\u{23FF}]|[\u{2B50}]|[\u{2B55}]|[\u{2934}-\u{2935}]|[\u{3030}]|[\u{303D}]|[\u{3297}]|[\u{3299}]|[\u{FE0F}]|[\u{200D}]|[\u{20E3}]/gu
-	
-	return text.replace(emojiRegex, '')
+	return emojiRegex.test(text)
 }
 
 // 输入特殊要求时的处理
 const onRequirementsInput = (e) => {
 	const value = e.detail.value
-	const filteredValue = removeEmoji(value)
 	
-	// 如果过滤后的值和原值不同，说明包含了表情，更新值并提示
-	if (value !== filteredValue) {
-		requirements.value = filteredValue
-		uni.showToast({
-			title: '暂不支持输入表情符号',
-			icon: 'none',
-			duration: 1500
-		})
+	// ✅ 检测是否有表情包
+	if (hasEmoji(value)) {
+		emojiError.value = '暂不支持输入表情符号，请删除后再提交'
+		requirements.value = value  // 保留原值，让用户自己删除
 	} else {
+		emojiError.value = ''
 		requirements.value = value
 	}
 }
@@ -209,27 +195,19 @@ const loadServiceDetail = async () => {
 // 选择日期
 const onDateChange = (e) => {
 	const selectedDate = e.detail.value
-	const today = minDate.value
 	
-	if (selectedDate < today) {
-		uni.showToast({ 
-			title: '预约日期不能早于今天', 
-			icon: 'none' 
-		})
+	if (selectedDate < minDate.value) {
+		uni.showToast({ title: '预约日期不能早于今天', icon: 'none' })
 		return
 	}
 	
 	serviceDate.value = selectedDate
-	// 清空之前选择的时间
 	serviceTime.value = ''
 }
 
 // 选择时间
 const onTimeChange = (e) => {
 	const selectedTime = e.detail.value
-	
-	// 如果选择的是今天，验证时间不能早于当前时间
-	const today = new Date()
 	const todayStr = minDate.value
 	
 	if (serviceDate.value === todayStr) {
@@ -239,10 +217,7 @@ const onTimeChange = (e) => {
 		const currentTime = `${currentHour}:${currentMinute}`
 		
 		if (selectedTime < currentTime) {
-			uni.showToast({ 
-				title: '预约时间不能早于当前时间', 
-				icon: 'none' 
-			})
+			uni.showToast({ title: '预约时间不能早于当前时间', icon: 'none' })
 			return
 		}
 	}
@@ -250,16 +225,21 @@ const onTimeChange = (e) => {
 	serviceTime.value = selectedTime
 }
 
-// 表单验证
+// ✅ 表单验证（阻止提交）
 const validateForm = () => {
 	if (!contactInfo.value.trim()) {
 		uni.showToast({ title: '请输入联系方式', icon: 'none' })
 		return false
 	}
 	
-	// 再次过滤特殊要求中的表情（防止绕过输入事件）
-	requirements.value = removeEmoji(requirements.value)
+	// ✅ 检查是否包含表情包
+	if (hasEmoji(requirements.value)) {
+		emojiError.value = '特殊要求中不能包含表情符号'
+		uni.showToast({ title: '特殊要求中不能包含表情符号', icon: 'none' })
+		return false
+	}
 	
+	emojiError.value = ''
 	return true
 }
 
@@ -273,8 +253,6 @@ const getFullServiceTime = () => {
 // 提交订单
 const handleSubmit = async () => {
 	if (!validateForm()) return
-
-	// 检查登录
 	if (!checkLogin()) return
 
 	submitting.value = true
@@ -441,6 +419,13 @@ const handleSubmit = async () => {
 					color: #333;
 				}
 			}
+		}
+		
+		// ✅ 错误提示样式
+		.error-tip {
+			font-size: 24rpx;
+			color: #ff4d4f;
+			margin-top: 10rpx;
 		}
 	}
 
