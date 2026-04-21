@@ -13,105 +13,152 @@
 		<view class="form">
 			<view class="form-main">
 				<!-- 1. 用户名 -->
-				<view class="input-item">
-					<input 
-						class="input" 
-						v-model="form.username" 
-						type="text" 
-						placeholder="用户名"
-						placeholder-class="placeholder-style"
-					>
+				<view class="form-item">
+					<view class="item-label">
+						<text class="required-star">*</text>
+						<text class="label-text">用户名</text>
+					</view>
+					<view class="item-input">
+						<input 
+							class="input" 
+							v-model="form.username" 
+							type="text" 
+							placeholder="请输入用户名"
+							placeholder-class="placeholder-style"
+						>
+					</view>
 				</view>
 				
 				<!-- 2. 昵称 -->
-				<view class="input-item">
-					<input 
-						class="input" 
-						v-model="form.nickname" 
-						type="text" 
-						placeholder="昵称"
-						placeholder-class="placeholder-style"
-					>
+				<view class="form-item">
+					<view class="item-label">
+						<text class="required-star">*</text>
+						<text class="label-text">昵称</text>
+					</view>
+					<view class="item-input">
+						<input 
+							class="input" 
+							v-model="form.nickname" 
+							type="text" 
+							placeholder="请输入昵称"
+							placeholder-class="placeholder-style"
+						>
+					</view>
 				</view>
 				
 				<!-- 3. 密码 -->
-				<view class="input-item">
-				  <!-- 隐藏密码状态 -->
-				  <input 
-				    v-if="!showPassword"
-				    class="input" 
-				    v-model="form.password" 
-				    type="password"
-				    placeholder="密码"
-				    placeholder-class="placeholder-style"
-				  >
-				  <!-- 显示密码状态 -->
-				  <input 
-				    v-else
-				    class="input" 
-				    v-model="form.password" 
-				    type="text"
-				    placeholder="密码"
-				    placeholder-class="placeholder-style"
-				  >
-				  <uni-icons 
-				    :type="showPassword ? 'eye-filled' : 'eye-slash-filled'" 
-				    size="24" 
-				    color="#999999"
-				    @click="toggleShowPassword"
-				    class="eye-icon"
-				  ></uni-icons>
+				<view class="form-item">
+					<view class="item-label">
+						<text class="required-star">*</text>
+						<text class="label-text">密码</text>
+					</view>
+					<view class="item-input">
+						<input 
+							v-if="!showPassword"
+							class="input" 
+							v-model="form.password" 
+							type="password"
+							placeholder="请输入密码"
+							placeholder-class="placeholder-style"
+						>
+						<input 
+							v-else
+							class="input" 
+							v-model="form.password" 
+							type="text"
+							placeholder="请输入密码"
+							placeholder-class="placeholder-style"
+						>
+						<uni-icons 
+							:type="showPassword ? 'eye-filled' : 'eye-slash-filled'" 
+							size="20" 
+							color="#999"
+							@click="toggleShowPassword"
+							class="eye-icon"
+						></uni-icons>
+					</view>
 				</view>
 				
 				<!-- 4. 确认密码 -->
-				<view class="input-item">
-				  <!-- 隐藏确认密码状态 -->
-				  <input 
-				    v-if="!showConfirmPassword"
-				    class="input" 
-				    v-model="form.confirmPassword"
-				    type="password"
-				    placeholder="确认密码"
-				    placeholder-class="placeholder-style"
-				  >
-				  <!-- 显示确认密码状态 -->
-				  <input 
-				    v-else
-				    class="input" 
-				    v-model="form.confirmPassword"
-				    type="text"
-				    placeholder="确认密码"
-				    placeholder-class="placeholder-style"
-				  >
-				  <uni-icons 
-				    :type="showConfirmPassword ? 'eye-filled' : 'eye-slash-filled'" 
-				    size="24" 
-				    color="#999999"
-				    @click="toggleShowConfirmPassword"
-				    class="eye-icon"
-				  ></uni-icons>
+				<view class="form-item">
+					<view class="item-label">
+						<text class="required-star">*</text>
+						<text class="label-text">确认密码</text>
+					</view>
+					<view class="item-input">
+						<input 
+							v-if="!showConfirmPassword"
+							class="input" 
+							v-model="form.confirmPassword"
+							type="password"
+							placeholder="请再次输入"
+							placeholder-class="placeholder-style"
+						>
+						<input 
+							v-else
+							class="input" 
+							v-model="form.confirmPassword"
+							type="text"
+							placeholder="请再次输入"
+							placeholder-class="placeholder-style"
+						>
+						<uni-icons 
+							:type="showConfirmPassword ? 'eye-filled' : 'eye-slash-filled'" 
+							size="20" 
+							color="#999"
+							@click="toggleShowConfirmPassword"
+							class="eye-icon"
+						></uni-icons>
+					</view>
 				</view>
 				
 				<!-- 5. 手机号 -->
-				<view class="input-item">
-					<input 
-						class="input" 
-						v-model="form.phone" 
-						type="number" 
-						placeholder="手机号"
-						placeholder-class="placeholder-style"
-					>
+				<view class="form-item">
+					<view class="item-label">
+						<text class="required-star">*</text>
+						<text class="label-text">手机号</text>
+					</view>
+					<view class="item-input">
+						<input 
+							class="input" 
+							v-model="form.phone" 
+							type="number" 
+							placeholder="请输入手机号"
+							placeholder-class="placeholder-style"
+							maxlength="11"
+						>
+					</view>
 				</view>
 				
-				<!-- 6. 邮箱 -->
-				<view class="input-item">
-					<input 
-						class="input" 
-						v-model="form.email" 
-						type="text" 
-						placeholder="邮箱"
-						placeholder-class="placeholder-style"
-					>
+				<!-- 6. 所在学校 -->
+				<view class="form-item">
+					<view class="item-label">
+						<text class="required-star">*</text>
+						<text class="label-text">所在学校</text>
+					</view>
+					<view class="item-input picker-input" @click="showSchoolPicker = true">
+						<text :class="['picker-text', {'selected': schoolName}]">
+							{{ schoolName || '请选择学校' }}
+						</text>
+						<uni-icons type="right" size="16" color="#999"></uni-icons>
+					</view>
+				</view>
+				
+				<!-- 7. 邮箱（选填） -->
+				<view class="form-item">
+					<view class="item-label">
+						<text class="label-text">邮箱</text>
+						<text class="optional-tag">选填</text>
+					</view>
+					<view class="item-input">
+						<input 
+							class="input" 
+							v-model="form.email" 
+							type="text" 
+							placeholder="请输入邮箱"
+							placeholder-class="placeholder-style"
+						>
+					</view>
 				</view>
 
 				<!-- 注册按钮 -->
@@ -144,14 +191,21 @@
 			</view>
 		</view>
 		<view class="safe-area-inset-bottom"></view>
+		
+		<!-- 学校选择弹窗 -->
+		<school-picker
+			v-model:visible="showSchoolPicker"
+			:value="{ id: schoolId, name: schoolName }"
+			@confirm="onSchoolConfirm"
+		/>
 	</view>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { register } from '@/api/user.js'  
+import { register } from '@/api/user.js'
+import SchoolPicker from '@/components/school-picker/school-picker.vue'
 
-// 表单数据统一管理
 const form = ref({
 	username: '',
 	nickname: '',
@@ -166,29 +220,34 @@ const isLoading = ref(false)
 const showPassword = ref(false)
 const showConfirmPassword = ref(false)  
 
+const schoolId = ref('')
+const schoolName = ref('')
+const showSchoolPicker = ref(false)
+
 const showToast = (title, icon = 'none') => {
 	uni.showToast({ title, icon, duration: 2000 })
 }
 
-// 切换密码显示
 const toggleShowPassword = () => {
 	showPassword.value = !showPassword.value
 }
 
-// 切换确认密码显示
 const toggleShowConfirmPassword = () => {
 	showConfirmPassword.value = !showConfirmPassword.value
 }
 
-// 处理注册
+const onSchoolConfirm = (school) => {
+	if (school) {
+		schoolId.value = school.id
+		schoolName.value = school.name
+	}
+}
+
 const handleRegister = async () => {
-	// 1. 验证协议
 	if (!isAgreed.value) {
 		showToast('请先同意用户协议')
 		return
 	}
-
-	// 2. 验证用户名
 	if (!form.value.username.trim()) {
 		showToast('请输入用户名')
 		return
@@ -197,13 +256,10 @@ const handleRegister = async () => {
 		showToast('用户名长度必须在3-20位之间')
 		return
 	}
-	const usernameRegex = /^[a-zA-Z0-9_]+$/
-	if (!usernameRegex.test(form.value.username)) {
+	if (!/^[a-zA-Z0-9_]+$/.test(form.value.username)) {
 		showToast('用户名只能包含字母、数字和下划线')
 		return
 	}
-
-	// 3. 验证昵称
 	if (!form.value.nickname.trim()) {
 		showToast('请输入昵称')
 		return
@@ -212,8 +268,6 @@ const handleRegister = async () => {
 		showToast('昵称长度必须在2-10位之间')
 		return
 	}
-
-	// 4. 验证密码
 	if (!form.value.password) {
 		showToast('请输入密码')
 		return
@@ -222,46 +276,35 @@ const handleRegister = async () => {
 		showToast('密码长度必须在6-20位之间')
 		return
 	}
-
-	// 5. 验证确认密码
 	if (form.value.password !== form.value.confirmPassword) {
 		showToast('两次密码不一致')
 		return
 	}
-
-	// 6. 验证手机号（如果填了）
-	if (form.value.phone) {
-		const phoneRegex = /^1[3-9]\d{9}$/
-		if (!phoneRegex.test(form.value.phone)) {
-			showToast('手机号格式不正确')
-			return
-		}
+	if (!form.value.phone) {
+		showToast('请输入手机号')
+		return
 	}
-
-	// 7. 验证邮箱（如果填了）
-	if (form.value.email) {
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-		if (!emailRegex.test(form.value.email)) {
-			showToast('邮箱格式不正确')
-			return
-		}
+	if (!/^1[3-9]\d{9}$/.test(form.value.phone)) {
+		showToast('手机号格式不正确')
+		return
+	}
+	if (!schoolId.value) {
+		showToast('请选择所在学校')
+		return
+	}
+	if (form.value.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.value.email)) {
+		showToast('邮箱格式不正确')
+		return
 	}
 
 	isLoading.value = true
 	try {
-		// 调用注册接口（去掉 confirmPassword）
-		const { confirmPassword, ...registerData } = form.value
-		await register(registerData)
-
+		const { confirmPassword, ...baseData } = form.value
+		await register({ ...baseData, school_id: schoolId.value })
 		showToast('注册成功', 'success')
-
-		// 跳转到登录页
 		setTimeout(() => {
-			uni.redirectTo({
-				url: '/pages/login/login'
-			})
+			uni.redirectTo({ url: '/pages/login/login' })
 		}, 1500)
-
 	} catch (err) {
 		console.error('注册失败：', err)
 	} finally {
@@ -269,24 +312,18 @@ const handleRegister = async () => {
 	}
 }
 
-// 切换协议勾选状态
 const toggleAgree = () => {
 	isAgreed.value = !isAgreed.value
 }
 
-// 跳转到登录页
 const goToLogin = () => {
-	uni.redirectTo({
-		url: '/pages/login/login'
-	})
+	uni.redirectTo({ url: '/pages/login/login' })
 }
 
-// 打开用户协议
 const openUserAgreement = () => {
 	uni.showToast({ title: '用户协议（开发中）', icon: 'none' })
 }
 
-// 打开隐私协议
 const openPrivacyAgreement = () => {
 	uni.showToast({ title: '隐私协议（开发中）', icon: 'none' })
 }
@@ -299,11 +336,12 @@ const openPrivacyAgreement = () => {
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
+	background: #fff;
 
 	.circle-wrapper {
 		position: relative;
 		width: 100%;
-		height: 400rpx;
+		height: 350rpx;
 
 		.circle-big {
 			width: 400rpx;
@@ -334,17 +372,17 @@ const openPrivacyAgreement = () => {
 	}
 
 	.header {
-		margin: 10rpx 40rpx 60rpx;
+		margin: 0 40rpx 30rpx;
 
 		.title {
-			font-size: 48rpx;
+			font-size: 40rpx;
 			font-weight: 600;
 			color: #333333;
 		}
 	}
 
 	.form {
-		margin: 0 40rpx;
+		margin: 0 30rpx;
 		display: flex;
 		flex-direction: column;
 		flex: 1;
@@ -353,53 +391,107 @@ const openPrivacyAgreement = () => {
 			flex: 1;
 		}
 
-		.input-item {
-			border: 1px solid #cbcbcb;
-			border-radius: 50rpx;
-			margin-bottom: 30rpx;  // 稍微调小一点，因为字段变多了
-			padding: 20rpx;
+		.form-item {
 			display: flex;
 			align-items: center;
+			margin-bottom: 24rpx;
+			gap: 12rpx;
 
-			.input {
+			.item-label {
+				width: 150rpx;
+				display: flex;
+				align-items: center;
+				flex-shrink: 0;
+
+				.required-star {
+					color: #ff4d4f;
+					font-size: 26rpx;
+					margin-right: 4rpx;
+				}
+
+				.label-text {
+					font-size: 28rpx;
+					color: #333;
+					font-weight: 500;
+				}
+
+				.optional-tag {
+					font-size: 20rpx;
+					color: #999;
+					margin-left: 6rpx;
+					padding: 2rpx 8rpx;
+					background: #f5f5f5;
+					border-radius: 6rpx;
+				}
+			}
+
+			.item-input {
 				flex: 1;
-				font-size: 32rpx;
+				display: flex;
+				align-items: center;
+				border: 1px solid #e0e0e0;
+				border-radius: 40rpx;
+				padding: 16rpx 24rpx;
+				background: #fff;
+
+				.input {
+					flex: 1;
+					font-size: 28rpx;
+					text-align: left;
+					color: #333333;
+				}
+
+				.eye-icon {
+					width: 44rpx;
+					text-align: center;
+					margin-left: 8rpx;
+				}
+
+				.placeholder-style {
+					color: #bbbbbb;
+					font-size: 28rpx;
+				}
 			}
 
-			.eye-icon {
-				width: 60rpx;
-				text-align: center;
-			}
+			.picker-input {
+				.picker-text {
+					flex: 1;
+					font-size: 28rpx;
+					color: #999;
 
-			.placeholder-style {
-				color: #999999;
-				font-size: 32rpx;
+					&.selected {
+						color: #333333;
+					}
+				}
 			}
 		}
 
 		.login-btn {
-			background: linear-gradient(135deg, rgba(254, 222, 101, 100), rgba(203, 244, 253, 100));
+			background: linear-gradient(135deg, #fed665, #cbf4fd);
 			color: #333333;
 			border-radius: 50rpx;
-			height: 100rpx;
-			line-height: 100rpx;
+			height: 90rpx;
+			line-height: 90rpx;
 			font-size: 34rpx;
 			font-weight: 500;
 			letter-spacing: 4rpx;
 			margin: 40rpx 0 30rpx;
-			flex-shrink: 0;
+			border: none;
 
 			&:active {
 				opacity: 0.8;
+			}
+			
+			&[disabled] {
+				opacity: 0.6;
 			}
 		}
 
 		.register-tip {
 			text-align: center;
-			font-size: 30rpx;
+			font-size: 28rpx;
 			color: #666666;
-			margin-bottom: 40rpx;
-			flex-shrink: 0;
+			margin-bottom: 30rpx;
 
 			.register-link {
 				color: #333333;
@@ -409,32 +501,28 @@ const openPrivacyAgreement = () => {
 		}
 
 		.agreement {
-			flex-shrink: 0;
 			display: flex;
 			align-items: center;
 			justify-content: center;
 			flex-wrap: wrap;
-			font-size: 26rpx;
+			font-size: 24rpx;
 			color: #999999;
-			margin-top: auto;
-			padding: 20rpx 0 30rpx;  // 稍微调小一点
+			padding: 20rpx 0 30rpx;
 
 			.checkbox-wrapper {
 				display: flex;
 				align-items: center;
 				margin-right: 4rpx;
-				padding: 10rpx 0;
 
 				.checkbox {
-					width: 34rpx;
-					height: 34rpx;
+					width: 30rpx;
+					height: 30rpx;
 					border: 2rpx solid #d0d0d0;
-					border-radius: 6rpx;
-					margin-right: 8rpx;
+					border-radius: 4rpx;
+					margin-right: 6rpx;
 					display: flex;
 					align-items: center;
 					justify-content: center;
-					transition: all 0.2s ease;
 					background: #ffffff;
 
 					&.checked {
@@ -443,14 +531,9 @@ const openPrivacyAgreement = () => {
 
 						.checkmark {
 							color: white;
-							font-size: 22rpx;
+							font-size: 20rpx;
 							font-weight: bold;
 						}
-					}
-
-					&:active {
-						transform: scale(0.95);
-						opacity: 0.8;
 					}
 				}
 			}
@@ -460,12 +543,8 @@ const openPrivacyAgreement = () => {
 			}
 
 			.agreement-link {
-				color: rgba(254, 222, 101, 100);
+				color: #fed665;
 				margin: 0 4rpx;
-
-				&:active {
-					opacity: 0.7;
-				}
 			}
 		}
 	}

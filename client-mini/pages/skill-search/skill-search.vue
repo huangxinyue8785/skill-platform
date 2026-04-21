@@ -48,13 +48,12 @@
 		</view>
 
 		<!-- 搜索结果列表 -->
-		<scroll-view class="result-list" scroll-y v-else-if="searchResult.length">
+		<scroll-view class="result-list" scroll-y v-else-if="searchResult.length" @scrolltolower="loadMore">
 			<view class="result-header">
 				<text class="result-count">共找到 {{ total }} 个相关服务</text>
 				<text class="clear-filter" v-if="hasFilter" @click="clearFilters">清除筛选</text>
 			</view>
 			
-			<!-- 使用 service-card 组件 -->
 			<view class="card-list">
 				<service-card 
 					v-for="service in searchResult" 
@@ -64,8 +63,19 @@
 					@click="selectService"
 				/>
 			</view>
+			
+			<!-- ✅ 添加这个 -->
+			<uni-load-more 
+				v-if="searchResult.length > 0"
+				:status="loadMoreStatus"
+				:content-text="{
+					contentdown: '上拉加载更多',
+					contentrefresh: '加载中...',
+					contentnomore: '没有更多了'
+				}"
+			></uni-load-more>
 		</scroll-view>
-
+		
 		<!-- 无搜索结果 -->
 		<view class="empty" v-else-if="(keyword || hasFilter) && !searchResult.length && !searching">
 			<image src="/static/empty.png" mode="aspectFit" class="empty-img"></image>
@@ -144,6 +154,10 @@ const keyword = ref("")
 const searchResult = ref([])
 const searching = ref(false)
 const total = ref(0)
+const page = ref(1)
+const pageSize = 10
+const loadMoreStatus = ref('more')  // more, loading, noMore
+const loadingMore = ref(false)
 
 // 筛选条件
 const schoolId = ref("")
@@ -248,8 +262,7 @@ const onInput = () => {
 	searchTimer = setTimeout(() => doSearch(), 300)
 }
 
-// 搜索
-const doSearch = async () => {
+const doSearch = async (isLoadMore = false) => {
 	if (!keyword.value.trim() && !schoolId.value && !categoryId.value) {
 		searchResult.value = []
 		total.value = 0
@@ -257,29 +270,68 @@ const doSearch = async () => {
 		return
 	}
 	
-	searching.value = true
+	if (isLoadMore) {
+		if (loadingMore.value || loadMoreStatus.value === 'noMore') return
+		loadingMore.value = true
+		loadMoreStatus.value = 'loading'
+	} else {
+		searching.value = true
+		page.value = 1
+	}
 	
 	try {
-		const params = { page: 1, pageSize: 30 }
+		const params = { 
+			page: isLoadMore ? page.value : 1, 
+			pageSize 
+		}
 		
 		if (keyword.value.trim()) params.keyword = keyword.value.trim()
 		if (schoolId.value) params.school_id = schoolId.value
 		if (categoryId.value) params.category_id = categoryId.value
 		
 		const res = await searchServices(params)
+		const list = res.list || res.data?.list || []
+		const totalCount = res.total || res.data?.total || 0
 		
-		searchResult.value = res.list || res.data?.list || []
-		total.value = res.total || res.data?.total || 0
+		if (isLoadMore) {
+			searchResult.value = [...searchResult.value, ...list]
+			page.value++
+		} else {
+			searchResult.value = list
+			page.value = 2
+		}
 		
-		if (keyword.value.trim() && searchResult.value.length > 0) {
+		total.value = totalCount
+		
+		if (searchResult.value.length >= totalCount) {
+			loadMoreStatus.value = 'noMore'
+		} else {
+			loadMoreStatus.value = 'more'
+		}
+		
+		if (!isLoadMore && keyword.value.trim() && searchResult.value.length > 0) {
 			saveHistory(keyword.value.trim())
 		}
 		
 	} catch (err) {
 		console.error("搜索失败:", err)
-		searchResult.value = []
+		if (!isLoadMore) {
+			searchResult.value = []
+		}
+		loadMoreStatus.value = 'more'
 	} finally {
-		searching.value = false
+		if (isLoadMore) {
+			loadingMore.value = false
+		} else {
+			searching.value = false
+		}
+	}
+}
+
+// 在 doSearch 函数后面添加：
+const loadMore = () => {
+	if (loadMoreStatus.value === 'more' && !loadingMore.value) {
+		doSearch(true)
 	}
 }
 
@@ -465,6 +517,7 @@ onUnmounted(() => {
 	bottom: 0;
 	background-color: #fff;
 	z-index: 10;
+	overflow-y: auto; 
 }
 
 .result-header {

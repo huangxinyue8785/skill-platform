@@ -44,7 +44,15 @@
 				@focus="onInputFocus"
 				class="message-input" 
 			/>
-			<button class="send-btn" @click="sendMessage">发送</button>
+			<!-- ✅ 发送按钮：根据是否有有效内容禁用 -->
+			<button 
+				class="send-btn" 
+				:class="{ disabled: !canSend }"
+				:disabled="!canSend"
+				@click="sendMessage"
+			>
+				发送
+			</button>
 		</view>
 	</view>
 </template>
@@ -76,6 +84,11 @@ const keyboardHeight = ref(0)
 
 let messageTimer = null
 let keyboardTimer = null
+
+// ✅ 计算是否可以发送（去除空格后有内容）
+const canSend = computed(() => {
+	return inputText.value.trim().length > 0
+})
 
 // ✅ 计算消息列表的高度（限制键盘高度最大值）
 const messageListHeight = computed(() => {
@@ -131,20 +144,68 @@ const onInputFocus = () => {
 	}, 200)
 }
 
-// 判断是否显示时间
+// ✅ 判断是否显示时间（优化版）
 const shouldShowTime = (msg, index) => {
 	if (index === 0) return true
+	
 	const prevMsg = messageList.value[index - 1]
 	if (!prevMsg) return true
-	return (msg.time - prevMsg.time) / 60 > 3
+	
+	const timeDiff = (msg.time - prevMsg.time) / 60 // 分钟差
+	const currentDate = new Date(msg.time * 1000)
+	const prevDate = new Date(prevMsg.time * 1000)
+	
+	// 超过5分钟显示
+	if (timeDiff > 5) return true
+	
+	// 跨天显示
+	if (currentDate.getDate() !== prevDate.getDate()) return true
+	
+	return false
 }
 
-// 格式化时间
+// ✅ 智能时间格式化函数
 const formatTime = (timestamp) => {
 	const date = new Date(timestamp * 1000)
+	const now = new Date()
+	
+	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+	const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000)
+	const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+	
 	const hours = date.getHours().toString().padStart(2, '0')
 	const minutes = date.getMinutes().toString().padStart(2, '0')
-	return `${hours}:${minutes}`
+	const timeStr = `${hours}:${minutes}`
+	
+	// 当天
+	if (targetDay.getTime() === today.getTime()) {
+		return timeStr
+	}
+	
+	// 昨天
+	if (targetDay.getTime() === yesterday.getTime()) {
+		return `昨天 ${timeStr}`
+	}
+	
+	// 本周内（非今天和昨天）
+	const dayOfWeek = date.getDay()
+	const weekDays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+	const diffDays = Math.floor((today - targetDay) / (24 * 60 * 60 * 1000))
+	
+	if (diffDays < 7 && diffDays > 1) {
+		return `${weekDays[dayOfWeek]} ${timeStr}`
+	}
+	
+	// 今年内
+	const month = (date.getMonth() + 1).toString().padStart(2, '0')
+	const day = date.getDate().toString().padStart(2, '0')
+	
+	if (date.getFullYear() === now.getFullYear()) {
+		return `${month}-${day} ${timeStr}`
+	}
+	
+	// 往年
+	return `${date.getFullYear()}-${month}-${day} ${timeStr}`
 }
 
 // 获取对方信息
@@ -262,17 +323,45 @@ onMessageReceived((event) => {
 	}, 80)
 })
 
-// 发送消息
+// ✅ 发送消息（保持键盘不收起）
 const sendMessage = async () => {
-	if (!isReady.value || !inputText.value.trim()) return
-	const text = inputText.value
+	// 检查是否可以发送
+	if (!isReady.value || !canSend.value) {
+		if (!canSend.value) {
+			uni.showToast({ title: '不能发送空白消息', icon: 'none', duration: 1500 })
+		}
+		return
+	}
+	
+	const text = inputText.value.trim()
 	try {
 		const newMsg = await sendTextMessage(targetUserId.value, text)
 		newMsg.ID = `${Date.now()}_${Math.random().toString(36).substr(2, 8)}`
 		messageList.value.push(newMsg)
-		inputText.value = ''
+		inputText.value = ''  // 清空输入框
+		
+		// ✅ 保持键盘不收起
 		nextTick(() => {
 			scrollToBottom()
+			
+			// 延迟一点再聚焦，确保 DOM 更新完成
+			setTimeout(() => {
+				// #ifdef APP-PLUS || H5
+				const textarea = document.querySelector('.message-input')
+				if (textarea) {
+					textarea.focus()
+				}
+				// #endif
+				
+				// #ifdef MP-WEIXIN
+				const query = uni.createSelectorQuery().in(instance)
+				query.select('.message-input').context((res) => {
+					if (res && res.context) {
+						res.context.focus()
+					}
+				}).exec()
+				// #endif
+			}, 50)
 		})
 	} catch (err) {
 		console.error('发送失败', err)
@@ -434,7 +523,7 @@ onUnmounted(() => {
 	right: 0;
 	bottom: 0;
 	display: flex;
-	align-items: center;  // ✅ 改成 center，让输入框和按钮垂直居中
+	align-items: center;
 	padding: 16rpx 24rpx;
 	background-color: #fff;
 	border-top: 1rpx solid #eee;
@@ -467,13 +556,19 @@ onUnmounted(() => {
 		&::after {
 			border: none;
 		}
+		
+		// ✅ 禁用状态样式
+		&.disabled {
+			opacity: 0.5;
+			background: #e0e0e0;
+		}
 	}
 }
 
 /* ✅ 小程序专用样式 */
 /* #ifdef MP-WEIXIN */
 .input-area {
-	align-items: flex-end;  // 小程序用 flex-end
+	align-items: flex-end;
 	
 	.message-input {
 		min-height: 70rpx;
@@ -486,7 +581,7 @@ onUnmounted(() => {
 /* ✅ App 专用样式 */
 /* #ifdef APP-PLUS */
 .input-area {
-	align-items: center;  // App 用 center
+	align-items: center;
 	
 	.message-input {
 		height: 70rpx;

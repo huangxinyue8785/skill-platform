@@ -65,10 +65,6 @@
 					<text class="label">联系方式：</text>
 					<text class="value phone">{{ order.contact || '暂无' }}</text>
 				</view>
-				<view class="info-row" v-if="order.contactInfo">
-					<text class="label">订单备注：</text>
-					<text class="value">{{ order.contactInfo }}</text>
-				</view>
 				<view class="info-row" v-if="order.requirements">
 					<text class="label">特殊要求：</text>
 					<text class="value">{{ order.requirements }}</text>

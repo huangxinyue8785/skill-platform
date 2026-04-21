@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken')
 const util = require("node:util");
 const path = require('path')
 const fs = require('fs')
-const { deleteImageFromCOS } = require('./uploadController');
+const {deleteImageFromCOS} = require('./uploadController');
 
 // 发布服务 接口地址：POST /api/services
 const publishService = async (req, res) => {
@@ -150,9 +150,38 @@ const getServiceList = async (req, res) => {
         }
 
         // 按学校筛选
+        let isExpanded = false
+        let expandCity = ''
+        let expandProvince = ''
+        let selfServiceCount = 0
+
         if (school_id) {
-            whereConditions.push('s.school_id = ?')
-            queryParams.push(school_id)
+            // 查本校服务数量
+            const [selfCount] = await db.query(
+                'SELECT COUNT(*) as count FROM services WHERE school_id = ? AND status = 1',
+                [school_id]
+            )
+            selfServiceCount = selfCount[0].count
+
+            // ✅ 始终同时查询本校和同城服务
+            const [userSchools] = await db.query(
+                'SELECT city, province FROM schools WHERE id = ?',
+                [school_id]
+            )
+
+            if (userSchools.length > 0) {
+                const { city, province } = userSchools[0]
+                // 查询本校 + 同城所有服务
+                whereConditions.push('(s.school_id = ? OR sc.city = ?)')
+                queryParams.push(school_id, city)
+                isExpanded = true
+                expandCity = city
+                expandProvince = province
+            } else {
+                // 如果找不到学校信息，只查本校
+                whereConditions.push('s.school_id = ?')
+                queryParams.push(school_id)
+            }
         }
 
         // ========== 关键词搜索（支持父分类） ==========
@@ -173,6 +202,13 @@ const getServiceList = async (req, res) => {
             orderBy = 's.price ASC'
         } else if (sort === 'price_desc') {
             orderBy = 's.price DESC'
+        }
+
+        // ✅ 如果是扩展推荐（本校服务少，补充了同城服务），让本校服务优先显示
+        if (isExpanded && school_id) {
+            orderBy = `
+        CASE WHEN s.school_id = ${school_id} THEN 1 ELSE 2 END ASC,
+        ${orderBy}`
         }
 
         // COUNT 查询（需要 JOIN pc 表）
@@ -224,7 +260,11 @@ const getServiceList = async (req, res) => {
             total,
             page: parseInt(page),
             pageSize: parseInt(pageSize),
-            totalPages: Math.ceil(total / pageSize)
+            totalPages: Math.ceil(total / pageSize),
+            isExpanded,
+            expandCity,
+            expandProvince,
+            selfServiceCount  // ✅ 添加这一行
         }, '获取成功'))
 
     } catch (err) {
@@ -388,11 +428,20 @@ const getMyServices = async (req, res) => {
 
             let statusText = ''
             switch (service.status) {
-                case 0: statusText = '待审核'; break;
-                case 1: statusText = '已上架'; break;
-                case 2: statusText = '已下架'; break;
-                case 3: statusText = '审核不通过'; break;
-                default: statusText = '未知'
+                case 0:
+                    statusText = '待审核';
+                    break;
+                case 1:
+                    statusText = '已上架';
+                    break;
+                case 2:
+                    statusText = '已下架';
+                    break;
+                case 3:
+                    statusText = '审核不通过';
+                    break;
+                default:
+                    statusText = '未知'
             }
 
             return {
@@ -437,7 +486,7 @@ const updateService = async (req, res) => {
     try {
         const userId = req.user.id
         const serviceId = req.params.id
-        const { title, description, price, images, contact, school_id } = req.body
+        const {title, description, price, images, contact, school_id} = req.body
 
         if (!serviceId) {
             return res.json(error('服务ID不能为空', 400))

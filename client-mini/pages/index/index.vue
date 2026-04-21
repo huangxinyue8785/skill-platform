@@ -51,32 +51,86 @@
 			<view class="divider"></view>
 
 			<view class="recommend-title">
-				<text class="recommend-text">推荐服务</text>
-				<text class="recommend-count">共{{total}}个服务</text>
+			    <text class="recommend-text">推荐服务</text>
+			    <text class="recommend-count">共{{total}}个服务</text>
 			</view>
-
-			<view class="service-list">
-				<service-card v-for="item in serviceList" :key="item.id" :service="item"
-					@click="goToDetail"></service-card>
+			
+			<!-- 本校无服务时的提示（仅登录用户显示） -->
+			<view class="expand-tip" v-if="userStore.token && selfServices.length === 0 && otherServices.length > 0">
+			    <text class="expand-tip-text">📢 您的学校暂无服务，为您推荐{{ expandCity || expandProvince }}其他学校的服务</text>
 			</view>
-
-			<!-- 加载更多 -->
-			<uni-load-more :status="loadMoreStatus" :content-text="{
-								contentdown: '上拉加载更多',
-								contentrefresh: '加载中...',
-								contentnomore: '没有更多了'
-							}"></uni-load-more>
-
-			<!-- 空状态 -->
+			
+			<!-- 本校服务 -->
+			<view class="service-list" v-if="selfServices.length > 0">
+			    <service-card 
+			        v-for="item in selfServices" 
+			        :key="item.id" 
+			        :service="item"
+			        @click="goToDetail"
+			    ></service-card>
+			</view>
+			
+			<!-- 同城服务分割线 -->
+			<view class="city-divider" v-if="userStore.token && otherServices.length > 0 && selfServices.length > 0">
+			    <view class="divider-line"></view>
+			    <text class="divider-text">为您推荐{{ expandCity || expandProvince }}其他学校的服务</text>
+			    <view class="divider-line"></view>
+			</view>
+			
+			<!-- 同城其他学校服务 -->
+			<view class="service-list" v-if="otherServices.length > 0">
+			    <service-card 
+			        v-for="item in otherServices" 
+			        :key="item.id" 
+			        :service="item"
+			        @click="goToDetail"
+			    ></service-card>
+			</view>
+			
+			<!-- 加载更多 - 只在有数据时显示 -->
+			<uni-load-more 
+			    v-if="serviceList.length > 0"
+			    :status="loadMoreStatus" 
+			    :content-text="{
+			        contentdown: '上拉加载更多',
+			        contentrefresh: '加载中...',
+			        contentnomore: '没有更多了'
+			    }"
+			></uni-load-more>
+			
+			<!-- ✅ 空状态 -->
 			<view class="empty-state" v-if="serviceList.length === 0 && !loading">
-				<image src="/static/empty.png" mode="aspectFit"></image>
-				<text>暂无服务</text>
+			    <image src="/static/empty.png" mode="aspectFit" class="empty-image"></image>
+			    
+			    <!-- 手动选择的学校无服务 -->
+			    <template v-if="isManualSchoolChange">
+			        <text class="empty-text">该学校暂无服务</text>
+			        <text class="empty-desc">去看看其他学校吧</text>
+			    </template>
+			    <!-- 本校无服务，同城/同省也无服务 -->
+			    <template v-else>
+			        <text class="empty-text">暂无服务</text>
+			        <text class="empty-desc">{{ expandCity ? expandCity + '暂无服务' : '该地区暂无服务' }}，去看看其他学校吧</text>
+			    </template>
+			    
+			    <!-- 按钮 -->
+			    <view class="empty-actions">
+			        <button class="action-btn" @click="goToSchoolSearch">搜索其他学校</button>
+			        <button class="action-btn secondary" @click="showAllServices">查看全部服务</button>
+			    </view>
 			</view>
 		</view>
+		
+		<back-top 
+		    :visible="scrollTop > 500" 
+		    :bottom="140" 
+		    @click="scrollToTop"
+		></back-top>
 	</view>
 </template>
 
 <script setup>
+import { getUserInfo } from '@/api/user.js'
 import {
     ref,
     computed,
@@ -85,9 +139,11 @@ import {
 } from 'vue'
 import {
     onLoad,
+	onShow, 
     onUnload,
     onPullDownRefresh,
-    onReachBottom
+    onReachBottom,
+	onPageScroll 
 } from '@dcloudio/uni-app'
 import {
     getParentCategories
@@ -96,9 +152,32 @@ import {
     getServiceList
 } from '@/api/service.js'
 import ServiceCard from '@/components/service-card/service-card.vue'
+import BackTop from '@/components/back-top/back-top.vue'
+import { useUserStore } from '@/stores/user'
 
 const currentSchool = ref('全部学校')
 const currentSchoolId = ref(null)
+
+const userStore = useUserStore()
+const isManualSchoolChange = ref(false) 
+
+const isExpandedRecommend = ref(false)
+const expandCity = ref('')
+const expandProvince = ref('')
+const selfServiceCount = ref(0)
+const scrollTop = ref(0)
+
+// ✅ 拆分本校服务和同城服务
+const selfServices = computed(() => {
+    if (!currentSchoolId.value) return []
+    return serviceList.value.filter(item => item.school_id === currentSchoolId.value)
+})
+
+const otherServices = computed(() => {
+    if (!currentSchoolId.value) return serviceList.value
+    return serviceList.value.filter(item => item.school_id !== currentSchoolId.value)
+})
+
 const categoryList = ref([])
 const serviceList = ref([])
 const loading = ref(false)
@@ -216,7 +295,9 @@ const scrollToPage = (pageIndex) => {
 }
 
 const loadServices = async (isRefresh = false) => {
-    if (loading.value) return
+    console.log('=== loadServices 被调用 ===')
+    console.log('isRefresh:', isRefresh)
+    console.log('currentSchoolId:', currentSchoolId.value)
 
     loading.value = true
     loadMoreStatus.value = 'loading'
@@ -231,7 +312,20 @@ const loadServices = async (isRefresh = false) => {
             params.school_id = currentSchoolId.value
         }
 
+        console.log('请求参数:', params)
+
         const res = await getServiceList(params)
+        console.log('返回数据:', res.list?.length, '条')
+		
+		isExpandedRecommend.value = res.isExpanded || false
+		expandCity.value = res.expandCity || ''
+		expandProvince.value = res.expandProvince || ''
+		selfServiceCount.value = res.selfServiceCount || 0 
+		
+		// 如果是手动选择学校，不显示扩展提示
+		if (isManualSchoolChange.value) {
+		    isExpandedRecommend.value = false
+		}
 
         if (isRefresh) {
             serviceList.value = res.list || []
@@ -289,8 +383,28 @@ const goToCampusHot = () => {
     })
 }
 
+const scrollToTop = () => {
+    uni.pageScrollTo({
+        scrollTop: 0,
+        duration: 300
+    })
+}
+
+const showAllServices = () => {
+    isManualSchoolChange.value = true
+    currentSchool.value = '全部学校'
+    currentSchoolId.value = null
+    page.value = 1
+    loadServices(true)
+}
+
 const setupHomeSchoolListener = () => {
     uni.$on('homeSchoolSelected', (school) => {
+		isManualSchoolChange.value = true
+		
+        console.log('=== 收到 homeSchoolSelected 事件 ===')
+        console.log('school:', school)
+        
         if (school === null) {
             currentSchool.value = '全部学校'
             currentSchoolId.value = null
@@ -298,8 +412,13 @@ const setupHomeSchoolListener = () => {
             currentSchool.value = school.name
             currentSchoolId.value = school.id
         }
+        
+        console.log('更新后 currentSchoolId:', currentSchoolId.value)
+        console.log('更新后 currentSchool:', currentSchool.value)
+        
         page.value = 1
         loadServices(true)
+        
         uni.showToast({
             title: school === null ? '已切换为全部学校' : `已切换到：${school.name}`,
             icon: 'none'
@@ -315,18 +434,68 @@ onLoad(() => {
     setupHomeSchoolListener()
     getRandomSaying()
     
+    // ✅ 如果有登录用户且有学校，默认筛选本校
+    if (userStore.userInfo?.school_id) {
+        currentSchoolId.value = userStore.userInfo.school_id
+        currentSchool.value = userStore.userInfo.school_name || '本校'
+    }
+    
     uni.$on('avatarUpdated', () => {
         page.value = 1
         loadServices(true)
+    })
+    
+    // ✅ 添加学校更新监听
+    uni.$on('schoolUpdated', (school) => {
+        if (school && school.school_id) {
+            currentSchoolId.value = school.school_id
+            currentSchool.value = school.school_name || '本校'
+            page.value = 1
+            loadServices(true)
+        }
     })
     
     loadCategories()
     loadServices()
 })
 
+onShow(async () => {
+    // ✅ 如果是手动选择学校，不要覆盖
+    if (isManualSchoolChange.value) {
+        console.log('手动选择学校，跳过自动重置')
+        isManualSchoolChange.value = false  // 重置标志
+        return
+    }
+    
+    // 如果已登录，重新获取最新的用户信息
+    if (userStore.token) {
+        try {
+            const res = await getUserInfo()
+            console.log('onShow 获取用户信息:', res.school_id, res.school_name)
+            console.log('当前学校ID:', currentSchoolId.value)
+            
+            if (res.school_id) {
+                // 直接更新学校信息
+                currentSchoolId.value = res.school_id
+                currentSchool.value = res.school_name || '本校'
+                
+                // 强制刷新服务列表
+                page.value = 1
+                loading.value = false
+                await loadServices(true)
+                
+                console.log('服务刷新完成')
+            }
+        } catch (err) {
+            console.error('获取用户信息失败', err)
+        }
+    }
+})
+
 onUnload(() => {
     removeHomeSchoolListener()
     uni.$off('avatarUpdated')
+	uni.$off('schoolUpdated')
 })
 
 onPullDownRefresh(() => {
@@ -338,6 +507,10 @@ onReachBottom(() => {
     if (loadMoreStatus.value === 'more') {
         loadServices()
     }
+})
+
+onPageScroll((e) => {
+    scrollTop.value = e.scrollTop
 })
 </script>
 
@@ -495,20 +668,86 @@ onReachBottom(() => {
 			}
 
 			.empty-state {
-				text-align: center;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
 				padding: 100rpx 0;
-
-				image {
+				
+				.empty-image {
 					width: 200rpx;
 					height: 200rpx;
-					margin-bottom: 20rpx;
+					margin-bottom: 30rpx;
 				}
-
-				text {
-					font-size: 28rpx;
+				
+				.empty-text {
+					font-size: 32rpx;
+					color: #333;
+					font-weight: 500;
+					margin-bottom: 10rpx;
+				}
+				
+				.empty-desc {
+					font-size: 26rpx;
 					color: #999;
 				}
 			}
 		}
+	}
+	
+	.expand-tip {
+	    background: linear-gradient(135deg, #f2e89f 0%, #d0f3f9 100%);
+	    border-radius: 12rpx;
+	    padding: 20rpx 30rpx;
+	    margin-bottom: 20rpx;
+	    
+	    .expand-tip-text {
+	        font-size: 26rpx;
+	        color: #333;
+	    }
+	}
+	
+	.city-divider {
+	    display: flex;
+	    align-items: center;
+	    margin: 30rpx 0 20rpx;
+	    
+	    .divider-line {
+	        flex: 1;
+	        height: 2rpx;
+	        background-color: #e0e0e0;
+	    }
+	    
+	    .divider-text {
+	        padding: 0 30rpx;
+	        font-size: 26rpx;
+	        color: #999;
+	    }
+	}
+	
+	.empty-actions {
+	    display: flex;
+	    gap: 20rpx;
+	    margin-top: 40rpx;
+	    
+	    .action-btn {
+	        flex: 1;
+	        height: 80rpx;
+	        line-height: 80rpx;
+	        background: linear-gradient(135deg, #f2e89f 0%, #d0f3f9 100%);
+	        border-radius: 40rpx;
+	        font-size: 28rpx;
+	        color: #333;
+	        border: none;
+	        
+	        &::after {
+	            border: none;
+	        }
+	        
+	        &.secondary {
+	            background: #f5f5f5;
+	            color: #666;
+	        }
+	    }
 	}
 </style>

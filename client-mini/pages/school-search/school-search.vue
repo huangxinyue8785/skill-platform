@@ -16,6 +16,18 @@
 
 		<!-- 实时搜索结果下拉列表 -->
 		<scroll-view class="result-list" scroll-y v-if="searchResult.length">
+			<!-- ✅ 你的学校选项（快速切回本校） -->
+			<view 
+				v-if="fromPage === 'home' && userStore.userInfo?.school_id"
+				class="result-item user-school"
+				@click="selectUserSchool"
+			>
+				<view class="school-info">
+					<text class="school-name">🏫 你的学校：{{ userStore.userInfo.school_name }}</text>
+					<text class="school-city">快速切回</text>
+				</view>
+			</view>
+			
 			<!-- 全部学校选项（只有首页和发布页才显示在搜索结果顶部） -->
 			<view 
 				v-if="fromPage !== 'profile'"
@@ -62,7 +74,7 @@
 					<uni-icons type="trash" size="20" color="#999" @click="clearHistory"></uni-icons>
 				</view>
 				<view class="tags">
-					<!-- 首页和发布页：第一个永远固定为“全部学校” -->
+					<!-- 首页和发布页：第一个永远固定为"全部学校" -->
 					<template v-if="fromPage !== 'profile'">
 						<view 
 							class="tag all-school-tag"
@@ -70,6 +82,16 @@
 							@click="selectAllSchool"
 						>
 							🌐 全部学校
+						</view>
+					</template>
+					
+					<!-- ✅ 你的学校标签 -->
+					<template v-if="fromPage === 'home' && userStore.userInfo?.school_id">
+						<view 
+							class="tag user-school-tag"
+							@click="selectUserSchool"
+						>
+							🏫 你的学校：{{ userStore.userInfo.school_name }}
 						</view>
 					</template>
 					
@@ -105,9 +127,12 @@
 </template>
 
 <script setup>
-import { ref, computed,onUnmounted } from "vue"
+import { ref, computed, onUnmounted } from "vue"
 import { onLoad } from "@dcloudio/uni-app"
 import { searchSchools } from "@/api/school.js"
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
 
 const keyword = ref("")
 const searchResult = ref([])
@@ -119,24 +144,24 @@ const currentSchoolName = ref('')
 const hotCities = ref(["北京", "上海", "广州", "深圳", "杭州", "成都", "武汉", "西安"])
 
 //防抖变量
-let searchTimer=null
+let searchTimer = null
 
-const onInput=()=>{
-	if(searchTimer){
+const onInput = () => {
+	if (searchTimer) {
 		clearTimeout(searchTimer)
 	}
-	if(!keyword.value.trim()){
-		searchResult.value=[]
+	if (!keyword.value.trim()) {
+		searchResult.value = []
 		return
 	}
-	searchTimer=setTimeout(async()=>{
-		try{
-			const res=await searchSchools(keyword.value)
-			searchResult.value=res || []
-		}catch(err){
-			console.error('搜索失败',err)
+	searchTimer = setTimeout(async () => {
+		try {
+			const res = await searchSchools(keyword.value)
+			searchResult.value = res || []
+		} catch (err) {
+			console.error('搜索失败', err)
 		}
-	},300)
+	}, 300)
 }
 
 // 页面卸载时清除定时器
@@ -176,7 +201,7 @@ const loadHistory = () => {
 
 // 保存历史搜索
 const saveHistory = (keyword) => {
-	if (!keyword.trim() || keyword === '全部学校') return // 不保存“全部学校”
+	if (!keyword.trim() || keyword === '全部学校') return // 不保存"全部学校"
 	
 	let history = [keyword, ...historyList.value.filter(k => k !== keyword)]
 	history = history.slice(0, 10)
@@ -224,10 +249,18 @@ const searchByCity = async (city) => {
 	}
 }
 
+// ✅ 选择本校
+const selectUserSchool = () => {
+	uni.$emit('homeSchoolSelected', {
+		name: userStore.userInfo.school_name,
+		id: userStore.userInfo.school_id
+	})
+	uni.navigateBack()
+}
+
 // 选择全部学校
 const selectAllSchool = () => {
 	if (fromPage.value === 'profile') {
-		// 个人信息页不需要全部学校
 		uni.showToast({
 			title: '请选择具体学校',
 			icon: 'none'
@@ -235,7 +268,6 @@ const selectAllSchool = () => {
 		return
 	}
 	
-	// 根据来源页面发送不同的事件，school=null 表示显示所有学校
 	if (fromPage.value === 'publish') {
 		uni.$emit('publishSchoolSelected', null)
 	} else {
@@ -247,10 +279,8 @@ const selectAllSchool = () => {
 
 // 选择学校
 const selectSchool = (school) => {
-	// 保存到历史（不保存“全部学校”）
 	saveHistory(school.name)
 	
-	// 根据来源页面发送不同的事件
 	if (fromPage.value === 'profile') {
 		uni.$emit('profileSchoolSelected', {
 			name: school.name,
@@ -338,6 +368,17 @@ const selectSchool = (school) => {
 		}
 	}
 	
+	// ✅ 你的学校样式
+	&.user-school {
+		background-color: #f0f9ff;
+		border-bottom: 2rpx dashed #ddd;
+		
+		.school-name {
+			color: #007aff;
+			font-weight: 500;
+		}
+	}
+	
 	.current-tag {
 		font-size: 24rpx;
 		color: #07c160;
@@ -401,6 +442,13 @@ const selectSchool = (school) => {
 		&.all-school-tag {
 			background: #fff7e6;
 			color: #ff4d4f;
+			font-weight: 500;
+		}
+		
+		// ✅ 你的学校标签样式
+		&.user-school-tag {
+			background: #e6f2ff;
+			color: #007aff;
 			font-weight: 500;
 		}
 		

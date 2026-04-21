@@ -58,29 +58,39 @@
 					<view v-if="priceError" class="error-tip">{{ priceError }}</view>
 				</view>
 
-				<!-- 联系方式 -->
+				<!-- 联系方式 - 不可编辑，根据登录状态显示不同内容 -->
 				<view class="form-item">
 					<text class="label">联系方式 <text class="required">*</text></text>
-					<input 
-						type="text" 
-						placeholder="请输入有效联系方式" 
-						class="input" 
-						v-model="contact" 
-						:disabled="submitting"
-						@blur="validateContact"
-						@input="onContactInput"
-					/>
+					<view class="selector" style="background-color: #f5f5f5;">
+						<text :class="['placeholder', 'contact-placeholder', {'selected': contact && isLoggedIn}]">
+							<template v-if="!isLoggedIn">
+								请先登录
+							</template>
+							<template v-else-if="!contact">
+								请先在个人中心设置手机号
+							</template>
+							<template v-else>
+								{{ contact }}
+							</template>
+						</text>
+					</view>
+					<!-- ✅ 添加提示文字 -->
+					<view class="contact-tip" v-if="isLoggedIn && contact">
+						如需修改请到个人中心
+					</view>
 					<view v-if="contactError" class="error-tip">{{ contactError }}</view>
 				</view>
 
-				<!-- 所在学校（可选） -->
+				<!-- 所在学校 - 冻结不可修改 -->
 				<view class="form-item">
-					<text class="label">所在学校</text>
-					<view class="selector" @click="!submitting && chooseSchool()" :class="{ 'disabled': submitting }">
-						<text :class="['placeholder', {'selected': schoolName}]">
-							{{ schoolName || '请选择学校（可选）' }}
+					<text class="label">所在学校 <text class="required">*</text></text>
+					<view class="selector" style="background-color: #f5f5f5;">
+						<text :class="['placeholder', 'school-placeholder', {'selected': schoolName}]">
+							{{ schoolName || '请先在个人中心设置学校' }}
 						</text>
-						<uni-icons type="right"></uni-icons>
+					</view>
+					<view class="contact-tip" v-if="schoolName">
+						如需修改请到个人中心
 					</view>
 				</view>
 
@@ -134,7 +144,15 @@ import { uploadServiceImages } from '@/api/upload.js'
 import { publishService, getServiceDetailForEdit, updateService } from '@/api/service.js'
 import { checkLogin } from '@/utils/auth'
 import { getImageUrl } from '@/utils/request.js'
+import { useUserStore } from '@/stores/user'
 import CategoryPicker from '@/components/category-picker/category-picker.vue'
+
+const userStore = useUserStore()
+
+// ==================== 登录状态 ====================
+const isLoggedIn = computed(() => {
+	return !!userStore.token && !!userStore.userInfo
+})
 
 // ==================== 属性定义 ====================
 const props = defineProps({
@@ -202,7 +220,6 @@ const isTempFile = (img) => {
 
 const validDescriptionLength = computed(() => getValidTextLength(description.value))
 
-// ✅ 修复：只保留中文、英文、数字
 const getValidTextLength = (text) => {
 	if (!text) return 0
 	const chinese = text.match(/[\u4e00-\u9fa5]/g) || []
@@ -226,7 +243,6 @@ const isAllRepeatedChars = (text) => {
 	return trimmed.split('').every(char => char === firstChar)
 }
 
-// ✅ 修复：不使用 Unicode 属性转义
 const isMeaninglessPunctuation = (text) => {
 	if (!text) return false
 	const trimmed = text.replace(/\s/g, '')
@@ -278,10 +294,16 @@ const validatePrice = () => {
 }
 
 const validateContact = () => {
-	const trimmedContact = contact.value?.trim() || ''
-	if (!trimmedContact) { contactError.value = '请输入联系方式'; return false }
-	if (trimmedContact.length < 5) { contactError.value = '请输入有效的联系方式'; return false }
-	if (isAllRepeatedChars(trimmedContact)) { contactError.value = '联系方式不能全是重复字符'; return false }
+	// 先检查是否登录
+	if (!isLoggedIn.value) {
+		contactError.value = '请先登录'
+		return false
+	}
+	// 再检查是否有手机号
+	if (!contact.value || !contact.value.trim()) {
+		contactError.value = '请先在个人中心设置手机号'
+		return false
+	}
 	contactError.value = ''
 	return true
 }
@@ -297,10 +319,6 @@ const onDescriptionInput = () => {
 
 const onPriceInput = () => {
 	if (priceError.value) priceError.value = ''
-}
-
-const onContactInput = () => {
-	if (contactError.value) contactError.value = ''
 }
 
 // ==================== 是否有修改 ====================
@@ -327,27 +345,6 @@ const hasChanges = computed(() => {
 	return false
 })
 
-// ==================== 学校选择 ====================
-const chooseSchool = () => {
-	if (submitting.value) return
-	uni.navigateTo({ url: '/pages/school-search/school-search?from=publish' })
-}
-
-const setupSchoolListener = () => {
-	uni.$on('publishSchoolSelected', (school) => {
-		if (school === null) {
-			schoolId.value = ''
-			schoolName.value = ''
-		} else {
-			schoolId.value = school.id
-			schoolName.value = school.name
-		}
-	})
-}
-
-const removeSchoolListener = () => {
-	uni.$off('publishSchoolSelected')
-}
 
 // ==================== 图片上传 ====================
 const chooseImage = () => {
@@ -436,7 +433,8 @@ const resetForm = () => {
 	title.value = ''
 	description.value = ''
 	price.value = ''
-	contact.value = ''
+	// 重置时保留用户手机号（如果已登录）
+	contact.value = isLoggedIn.value ? (userStore.userInfo?.phone || '') : ''
 	schoolId.value = ''
 	schoolName.value = ''
 	localImages.value = []
@@ -456,15 +454,22 @@ const handleSubmitClick = () => {
 }
 
 const handleSubmit = async () => {
-	if (!validateForm()) { submitting.value = false; return }
+	// 先检查登录
+	if (!checkLogin({ action: 'publish' })) { 
+		submitting.value = false
+		return 
+	}
+	
+	if (!validateForm()) { 
+		submitting.value = false
+		return 
+	}
 
 	if (props.isEdit && !hasChanges.value) {
 		uni.showToast({ title: '没有检测到任何修改', icon: 'none' })
 		submitting.value = false
 		return
 	}
-
-	if (!checkLogin({ action: 'publish' })) { submitting.value = false; return }
 
 	uni.showLoading({ title: props.isEdit ? '更新中...' : '发布中...', mask: true })
 
@@ -497,19 +502,28 @@ const handleSubmit = async () => {
 		}
 
 		if (props.isEdit) {
-			await updateService(props.serviceId, submitData)
-			uni.hideLoading()
-			uni.showToast({ title: '更新成功待审核', icon: 'success', duration: 2000 })
-			setTimeout(() => {
-				const pages = getCurrentPages()
-				pages.length > 1 ? uni.navigateBack() : uni.reLaunch({ url: '/pages/my-publish/my-publish' })
-			}, 2000)
-		} else {
-			await publishService(submitData)
-			resetForm()
-			uni.hideLoading()
-			uni.showToast({ title: '发布成功待审核', icon: 'success', duration: 2000 })
-		}
+		            await updateService(props.serviceId, submitData)
+		            
+		            // ✅ 立即清空表单
+		            resetForm()
+		            
+		            uni.hideLoading()
+		            uni.showToast({ title: '更新成功待审核', icon: 'success', duration: 1500 })
+		            
+		            setTimeout(() => {
+		                const pages = getCurrentPages()
+		                if (pages.length > 1) {
+		                    uni.navigateBack()
+		                } else {
+		                    uni.reLaunch({ url: '/pages/my-publish/my-publish' })
+		                }
+		            }, 1500)
+		        } else {
+		            await publishService(submitData)
+		            resetForm()
+		            uni.hideLoading()
+		            uni.showToast({ title: '发布成功待审核', icon: 'success', duration: 1500 })
+		        }
 	} catch (err) {
 		console.error(props.isEdit ? '更新失败' : '发布失败', err)
 		uni.hideLoading()
@@ -521,18 +535,40 @@ const handleSubmit = async () => {
 
 // ==================== 生命周期 ====================
 onMounted(() => {
-	setupSchoolListener()
+	// ✅ 自动填充用户学校
+	if (userStore.userInfo?.school_id) {
+		schoolId.value = userStore.userInfo.school_id
+		schoolName.value = userStore.userInfo.school_name || ''
+	}
+	
+	// 只有登录了才填充手机号
+	if (isLoggedIn.value && userStore.userInfo?.phone) {
+		contact.value = userStore.userInfo.phone
+	}
+	
+	// ✅ 监听刷新事件
+	uni.$on('refreshPublishForm', () => {
+		if (userStore.userInfo?.school_id) {
+			schoolId.value = userStore.userInfo.school_id
+			schoolName.value = userStore.userInfo.school_name || ''
+		}
+		if (isLoggedIn.value && userStore.userInfo?.phone) {
+			contact.value = userStore.userInfo.phone
+		}
+	})
+	
 	if (props.isEdit && props.serviceId) {
 		loadServiceDetail()
 	}
 })
 
-watch(() => props.serviceId, (newId) => {
-	if (newId && props.isEdit) loadServiceDetail()
+// ✅ 添加 onUnmounted 移除监听
+onUnmounted(() => {
+	uni.$off('refreshPublishForm')
 })
 
-onUnmounted(() => {
-	removeSchoolListener()
+watch(() => props.serviceId, (newId) => {
+	if (newId && props.isEdit) loadServiceDetail()
 })
 
 defineExpose({ resetForm })
@@ -619,6 +655,13 @@ defineExpose({ resetForm })
 		color: #ff4d4f;
 		margin-top: 10rpx;
 	}
+	
+	.contact-tip {
+		font-size: 24rpx;
+		color: #bbb;
+		margin-top: 10rpx;
+		padding-left: 10rpx;
+	}
 
 	.selector {
 		height: 80rpx;
@@ -692,6 +735,22 @@ defineExpose({ resetForm })
 				margin-top: 10rpx;
 			}
 		}
+	}
+}
+
+.contact-placeholder {
+	color: #999 !important;  // 浅灰色，和其他placeholder一致
+	
+	&.selected {
+		color: #bbb !important;  // 有手机号时也显示较浅的颜色
+	}
+}
+
+.school-placeholder {
+	color: #999 !important;
+	
+	&.selected {
+		color: #bbb !important;
 	}
 }
 </style>

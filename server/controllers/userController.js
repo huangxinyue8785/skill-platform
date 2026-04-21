@@ -15,7 +15,8 @@ const { deleteImageFromCOS } = require('./uploadController');
 // 用户注册 接口地址：POST /api/user/register
 const userRegister = async (req, res) => {
     try {
-        const { username, password, nickname, phone, email } = req.body;
+        // ✅ 添加 school_id
+        const { username, password, nickname, phone, email, school_id } = req.body;
 
         //用户名验证
         if(!username){
@@ -45,17 +46,23 @@ const userRegister = async (req, res) => {
             return res.json(error('昵称必须在2-10位之间'))
         }
 
-        //手机号验证（如果提供了）
-        if(phone){
-            const phoneRegex = /^1[3-9]\d{9}$/;
-            if(!phoneRegex.test(phone)){
-                return res.json(error('手机号格式不正确'))
-            }
+        //手机号验证（必填）
+        if(!phone){
+            return res.json(error('手机号不能为空'))
+        }
+        const phoneRegex = /^1[3-9]\d{9}$/;
+        if(!phoneRegex.test(phone)){
+            return res.json(error('手机号格式不正确'))
+        }
+
+        // ✅ 学校验证（必填）
+        if(!school_id){
+            return res.json(error('请选择所在学校'))
         }
 
         //邮箱验证（如果提供了）
         if (email) {
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;  // 简单的邮箱正则
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(email)) {
                 return res.json(error('邮箱格式不正确'));
             }
@@ -71,14 +78,14 @@ const userRegister = async (req, res) => {
         }
 
         //密码加密
-        const salt = bcrypt.genSaltSync(10); // 生成盐
-        const hash = bcrypt.hashSync(password, salt); // 加密
+        const salt = bcrypt.genSaltSync(10);
+        const hash = bcrypt.hashSync(password, salt);
 
-        //插入数据库
+        // ✅ 插入数据库，添加 school_id
         await db.query(
-            `INSERT INTO users (username, password, nickname, phone, email)
-             VALUES (?, ?, ?, ?, ?)`,
-            [username, hash, nickname, phone || null, email || null]
+            `INSERT INTO users (username, password, nickname, phone, email, school_id)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [username, hash, nickname, phone || null, email || null, school_id]
         );
 
         res.json(success(null, '注册成功'));
@@ -287,6 +294,21 @@ const updateUserInfo = async (req,res)=>{
             if(phone && !/^1[3-9]\d{9}$/.test(phone)){
                 return res.json(error('手机号格式不正确'))
             }
+
+            // ✅ 获取旧手机号
+            const [oldUser] = await db.query('SELECT phone FROM users WHERE id = ?', [userId])
+            const oldPhone = oldUser[0]?.phone
+
+            // ✅ 如果手机号有变化，同步更新所有已发布服务的联系方式
+            if (oldPhone && oldPhone !== phone) {
+                // ✅ 修改后的代码（正确）- 更新所有服务，不限制状态
+                await db.query(
+                    'UPDATE services SET contact = ? WHERE user_id = ?',
+                    [phone, userId]
+                )
+                console.log(`用户 ${userId} 手机号从 ${oldPhone} 更换为 ${phone}，已同步更新服务联系方式`)
+            }
+
             updateFields.push('phone = ?')
             updateValues.push(phone || null)
         }

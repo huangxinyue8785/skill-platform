@@ -23,10 +23,14 @@
 			<view class="order-card">
 				<view class="card-title">订单信息</view>
 
-				<!-- 联系方式（必填） -->
+				<!-- 联系方式（必填）- 不可编辑，样式与发布页一致 -->
 				<view class="form-item">
 					<text class="label">联系方式 <text class="required">*</text></text>
-					<input type="text" v-model="contactInfo" placeholder="请输入手机号/微信/QQ" class="input" />
+					<view class="selector" style="background-color: #f5f5f5;">
+						<text :class="['placeholder', 'contact-placeholder', {'selected': contactInfo}]">
+							{{ contactInfo || '请先在个人中心设置手机号' }}
+						</text>
+					</view>
 				</view>
 
 				<!-- 预约日期 -->
@@ -504,6 +508,15 @@ const handleSubmit = async () => {
 			&[disabled] {
 				opacity: 0.5;
 			}
+		}
+	}
+	
+	// ✅ 联系方式文字颜色淡一点
+	.contact-placeholder {
+		color: #bbb !important;
+		
+		&.selected {
+			color: #bbb !important;
 		}
 	}
 </style>

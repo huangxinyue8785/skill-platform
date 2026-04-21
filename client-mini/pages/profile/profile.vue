@@ -1,11 +1,23 @@
 <template>
 	<view class="profile-container">
 		<!-- 头像 -->
+		<!-- 头像 -->
 		<view class="avatar-section" @click="changeAvatar">
-			<image :src="getImageUrl(avatarPreview || userInfo.avatar)" mode="aspectFill"></image>
-			<view class="change-avatar">
-				<uni-icons type="camera" size="20" color="#fff"></uni-icons>
-			</view>
+		    <!-- 如果有预览图片，直接使用临时路径 -->
+		    <image 
+		        v-if="avatarPreview" 
+		        :src="avatarPreview" 
+		        mode="aspectFill"
+		    ></image>
+		    <!-- 否则使用服务器上的头像 -->
+		    <image 
+		        v-else 
+		        :src="getImageUrl(userInfo.avatar)" 
+		        mode="aspectFill"
+		    ></image>
+		    <view class="change-avatar">
+		        <uni-icons type="camera" size="20" color="#fff"></uni-icons>
+		    </view>
 		</view>
 
 		<!-- 信息列表 -->
@@ -209,22 +221,21 @@ const loadUserInfo = async () => {
 
 // ========== 选择头像（先预览，不上传） ==========
 const changeAvatar = () => {
-	uni.chooseImage({
-		count: 1,
-		sizeType: ['compressed'],
-		sourceType: ['album', 'camera'],
-		success: (res) => {
-			// 只保存临时文件路径用于预览
-			avatarPreview.value = res.tempFilePaths[0]
-			hasNewAvatar.value = true
-			
-			uni.showToast({
-				title: '已选择新头像，点击保存生效',
-				icon: 'none',
-				duration: 2000
-			})
-		}
-	})
+    uni.chooseImage({
+        count: 1,
+        sizeType: ['compressed'],
+        sourceType: ['album', 'camera'],
+        success: (res) => {
+            avatarPreview.value = res.tempFilePaths[0]  // ✅ 保存临时路径
+            hasNewAvatar.value = true
+            
+            uni.showToast({
+                title: '已选择新头像，点击保存生效',
+                icon: 'none',
+                duration: 2000
+            })
+        }
+    })
 }
 
 // ========== 保存修改（包括头像上传） ==========
@@ -294,6 +305,7 @@ const saveProfile = async () => {
 		}
 		
 		uni.$emit('avatarUpdated') 
+		uni.$emit('schoolUpdated', { school_id: res.school_id, school_name: res.school_name })
 
 		uni.hideLoading()
 		uni.showToast({ title: '保存成功', icon: 'success' })
@@ -319,11 +331,22 @@ const editNickname = () => {
 }
 
 const editPhone = () => {
+	// 获取用户已发布的所有服务数量
+	const serviceCount = userInfo.value.service_count || 0
+	
+	let placeholderText = '请输入新手机号'
+	let contentText = userInfo.value.phone || ''
+	
+	// 如果有已发布的服务，添加提示
+	if (serviceCount > 0) {
+		placeholderText = `更换后，您发布的${serviceCount}个服务联系方式将全部同步更新`
+	}
+	
 	uni.showModal({
 		title: '修改手机号',
-		content: userInfo.value.phone || '',
+		content: contentText,
 		editable: true,
-		placeholderText: '请输入手机号',
+		placeholderText: placeholderText,
 		success: (res) => {
 			if (res.confirm && res.content) {
 				const phoneRegex = /^1[3-9]\d{9}$/
@@ -331,7 +354,33 @@ const editPhone = () => {
 					uni.showToast({ title: '手机号格式不正确', icon: 'none' })
 					return
 				}
-				userInfo.value.phone = res.content
+				
+				// 如果有服务，再次确认
+				if (serviceCount > 0) {
+					uni.showModal({
+						title: '确认修改',
+						content: `修改后，您发布的所有服务（共${serviceCount}个）的联系方式将全部更新为新手机号，确定吗？`,
+						success: (confirmRes) => {
+							if (confirmRes.confirm) {
+								userInfo.value.phone = res.content
+								// ✅ 改成 showModal 显示完整提示
+								uni.showModal({
+									title: '提示',
+									content: '手机号已更新，请点击底部的"保存修改"按钮完成保存',
+									showCancel: false
+								})
+							}
+						}
+					})
+				} else {
+					userInfo.value.phone = res.content
+					// ✅ 改成 showModal 显示完整提示
+					uni.showModal({
+						title: '提示',
+						content: '手机号已更新，请点击底部的"保存修改"按钮完成保存',
+						showCancel: false
+					})
+				}
 			}
 		}
 	})

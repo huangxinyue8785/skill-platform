@@ -19,13 +19,18 @@
 
 <script setup>
 import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'  // ✅ 从 uni-app 导入
 import PublishForm from '@/components/publish-form/publish-form.vue'
 import { getStatusBarHeight } from "@/utils/system.js"
 
 const publishFormRef = ref()
 
-const handleSubmitSuccess = () => {
-}
+const handleSubmitSuccess = () => {}
+
+// ✅ 每次显示页面时发送刷新事件
+onShow(() => {
+	uni.$emit('refreshPublishForm')
+})
 </script>
 
 <style lang="scss" scoped>
