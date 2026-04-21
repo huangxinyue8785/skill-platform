@@ -21,7 +21,7 @@ const chartData = ref([])
 // 获取服务分类分布
 const fetchData = async () => {
   try {
-    const res = await getServiceList({ page: 1, pageSize: 100, status: 1 })
+    const res = await getServiceList({page: 1, pageSize: 100, status: 1})
     if (res.code === 200 && res.data) {
       const list = res.data.list || []
       const categoryMap = new Map()
@@ -30,25 +30,33 @@ const fetchData = async () => {
         categoryMap.set(categoryName, (categoryMap.get(categoryName) || 0) + 1)
       })
 
-      const pieData = []
-      for (let [name, value] of categoryMap) {
-        pieData.push({ name, value })
+      // ✅ 按数量排序
+      const sorted = Array.from(categoryMap.entries()).sort((a, b) => b[1] - a[1])
+
+      // ✅ 取前15个，其余合并为"其他"
+      const top15 = sorted.slice(0, 15)
+      const otherSum = sorted.slice(15).reduce((sum, item) => sum + item[1], 0)
+
+      const pieData = top15.map(([name, value]) => ({name, value}))
+      if (otherSum > 0) {
+        pieData.push({name: '其他', value: otherSum})
       }
+
       chartData.value = pieData.length ? pieData : [
-        { name: '学习辅导', value: 15 },
-        { name: '生活服务', value: 12 },
-        { name: '技能特长', value: 10 },
-        { name: '娱乐休闲', value: 8 }
+        {name: '学习辅导', value: 15},
+        {name: '生活服务', value: 12},
+        {name: '技能特长', value: 10},
+        {name: '娱乐休闲', value: 8}
       ]
       updateChart()
     }
   } catch (err) {
     console.error('获取分类分布失败', err)
     chartData.value = [
-      { name: '学习辅导', value: 15 },
-      { name: '生活服务', value: 12 },
-      { name: '技能特长', value: 10 },
-      { name: '娱乐休闲', value: 8 }
+      {name: '学习辅导', value: 15},
+      {name: '生活服务', value: 12},
+      {name: '技能特长', value: 10},
+      {name: '娱乐休闲', value: 8}
     ]
     updateChart()
   }
@@ -71,24 +79,40 @@ const updateChart = () => {
     legend: {
       orient: 'vertical',
       left: 'left',
-      textStyle: { color: '#7c8b72' }
+      textStyle: {color: '#7c8b72'},
+      // ✅ 如果还是太多，可以限制图例数量
+      type: 'scroll',
+      pageIconColor: '#9bb096',
+      pageTextStyle: {color: '#7c8b72'}
     },
     series: [
       {
         name: '服务分类',
         type: 'pie',
-        radius: '55%',
-        center: ['50%', '50%'],
+        radius: ['40%', '65%'],  // ✅ 环形图，更美观
+        center: ['55%', '50%'],  // ✅ 往右移一点，给图例留空间
         data: chartData.value,
         label: {
           show: true,
           formatter: '{b}: {d}%',
-          color: '#5a6e7c'
+          color: '#5a6e7c',
+          fontSize: 11
+        },
+        labelLine: {
+          length: 10,
+          length2: 8,
+          smooth: true
         },
         itemStyle: {
           borderRadius: 8,
           borderColor: '#fff',
           borderWidth: 2
+        },
+        emphasis: {
+          scale: true,
+          label: {
+            fontWeight: 'bold'
+          }
         }
       }
     ]
