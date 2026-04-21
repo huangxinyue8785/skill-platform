@@ -145,7 +145,7 @@ onMounted(() => {
 
     <!-- 2. 全国地图（独占一行，很大） -->
     <div class="map-card">
-      <ChinaMap height="600px" />
+      <ChinaMap height="620px" />
     </div>
 
     <!-- 3. 两个折线图 -->

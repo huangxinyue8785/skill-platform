@@ -82,7 +82,7 @@ const updateChart = (scatterData) => {
       map: 'china',
       roam: true,           // 允许缩放和拖拽
       zoom: 1.8,            // ✅ 初始缩放更大，显示更全
-      center: [108, 25],    // ✅ 中国地图中心（兰州附近）
+      center: [108, 35],    // ✅ 中国地图中心（兰州附近）
       aspectScale: 0.75,    // ✅ 宽高比，让地图更协调
       label: {show: false},
       emphasis: {
