@@ -14,7 +14,7 @@ const adminInfo = computed(() => {
   return info ? JSON.parse(info) : null
 })
 
-const isCollapse = ref(true)
+const isCollapse = ref(false)
 
 const menuList = [
   { path: '/dashboard', name: '仪表盘', icon: DataAnalysis },

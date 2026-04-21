@@ -10,7 +10,6 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-// 统计数据
 const stats = ref({
   userTotal: 0,
   serviceTotal: 0,
@@ -18,13 +17,11 @@ const stats = ref({
   amountTotal: 0
 })
 
-// 待办事项数据
 const pendingServicesCount = ref(0)
 
-// 获取待审核服务数量
 const fetchPendingServices = async () => {
   try {
-    const res = await getServiceList({page: 1, pageSize: 1, status: 0})
+    const res = await getServiceList({ page: 1, pageSize: 1, status: 0 })
     if (res.code === 200 && res.data) {
       pendingServicesCount.value = res.data.total || 0
     }
@@ -33,15 +30,12 @@ const fetchPendingServices = async () => {
   }
 }
 
-// 跳转到服务审核页
 const goToServices = () => {
   router.push('/services')
 }
 
-// 最近订单
 const recentOrders = ref([])
 
-// 获取统计数据
 const fetchStats = async () => {
   try {
     const res = await getAdminStats()
@@ -58,10 +52,9 @@ const fetchStats = async () => {
   }
 }
 
-// 获取最近订单
 const fetchRecentOrders = async () => {
   try {
-    const res = await getOrderList({page: 1, pageSize: 5})
+    const res = await getOrderList({ page: 1, pageSize: 5 })
     if (res.code === 200 && res.data) {
       recentOrders.value = res.data.list || []
     }
@@ -70,18 +63,15 @@ const fetchRecentOrders = async () => {
   }
 }
 
-// 跳转到订单详情
 const goToOrderDetail = (row) => {
   console.log('跳转到订单详情', row.id)
 }
 
-// 格式化金额
 const formatPrice = (price) => {
   if (!price && price !== 0) return '¥0.00'
   return '¥' + parseFloat(price).toFixed(2)
 }
 
-// 格式化日期时间
 const formatDateTime = (time) => {
   if (!time) return '-'
   const date = new Date(time)
@@ -94,15 +84,14 @@ const formatDateTime = (time) => {
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`
 }
 
-// 获取订单状态
 const getStatusInfo = (status) => {
   const statusMap = {
-    0: {text: '待支付', class: 'status-pending'},
-    1: {text: '已支付', class: 'status-paid'},
-    2: {text: '已完成', class: 'status-completed'},
-    3: {text: '已取消', class: 'status-cancelled'}
+    0: { text: '待支付', class: 'status-pending' },
+    1: { text: '已支付', class: 'status-paid' },
+    2: { text: '已完成', class: 'status-completed' },
+    3: { text: '已取消', class: 'status-cancelled' }
   }
-  return statusMap[status] || {text: '未知', class: ''}
+  return statusMap[status] || { text: '未知', class: '' }
 }
 
 onMounted(() => {
@@ -114,83 +103,76 @@ onMounted(() => {
 
 <template>
   <div class="dashboard-page">
-    <!-- 1. 地图 + 两侧 KPI 卡片 -->
-    <div class="map-kpi-wrapper">
-      <!-- 左侧 KPI -->
-      <div class="kpi-side kpi-left">
-        <div class="stat-card-vertical">
-          <div class="stat-icon user-icon">
-            <el-icon :size="32">
-              <User/>
-            </el-icon>
-          </div>
+    <!-- 1. 统计卡片（KPI）- 四个横排 -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon user-icon">
+          <el-icon :size="28"><User /></el-icon>
+        </div>
+        <div class="stat-info">
           <div class="stat-value">{{ stats.userTotal }}</div>
           <div class="stat-label">总用户数</div>
         </div>
-        <div class="stat-card-vertical">
-          <div class="stat-icon order-icon">
-            <el-icon :size="32">
-              <ShoppingCart/>
-            </el-icon>
-          </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon service-icon">
+          <el-icon :size="28"><Goods /></el-icon>
+        </div>
+        <div class="stat-info">
+          <div class="stat-value">{{ stats.serviceTotal }}</div>
+          <div class="stat-label">总服务数</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon order-icon">
+          <el-icon :size="28"><ShoppingCart /></el-icon>
+        </div>
+        <div class="stat-info">
           <div class="stat-value">{{ stats.orderTotal }}</div>
           <div class="stat-label">总订单数</div>
         </div>
       </div>
-
-      <!-- 中间地图 -->
-      <div class="map-center">
-        <ChinaMap height="100%"/>
-      </div>
-
-      <!-- 右侧 KPI -->
-      <div class="kpi-side kpi-right">
-        <div class="stat-card-vertical">
-          <div class="stat-icon service-icon">
-            <el-icon :size="32">
-              <Goods/>
-            </el-icon>
-          </div>
-          <div class="stat-value">{{ stats.serviceTotal }}</div>
-          <div class="stat-label">总服务数</div>
+      <div class="stat-card">
+        <div class="stat-icon amount-icon">
+          <el-icon :size="28"><Money /></el-icon>
         </div>
-        <div class="stat-card-vertical">
-          <div class="stat-icon amount-icon">
-            <el-icon :size="32">
-              <Money/>
-            </el-icon>
-          </div>
+        <div class="stat-info">
           <div class="stat-value">{{ formatPrice(stats.amountTotal) }}</div>
           <div class="stat-label">总交易额</div>
         </div>
       </div>
     </div>
 
-    <!-- 2. 图表区域：两个折线图 -->
+    <!-- 2. 全国地图（独占一行，很大） -->
+    <div class="map-card">
+      <ChinaMap height="520px" />
+    </div>
+
+    <!-- 3. 两个折线图 -->
     <div class="charts-grid">
       <div class="chart-card">
         <div class="chart-header"><h4>近7天用户增长趋势</h4></div>
-        <LineChart type="user" height="280px"/>
+        <LineChart type="user" height="280px" />
       </div>
       <div class="chart-card">
         <div class="chart-header"><h4>近7天订单趋势</h4></div>
-        <LineChart type="order" height="280px"/>
+        <LineChart type="order" height="280px" />
       </div>
     </div>
 
-    <!-- 3. 饼图 + 柱状图 -->
+    <!-- 4. 饼图 + 柱状图 -->
     <div class="charts-grid">
       <div class="chart-card">
         <div class="chart-header"><h4>服务分类分布</h4></div>
-        <PieChart height="320px"/>
+        <PieChart height="320px" />
       </div>
       <div class="chart-card">
         <div class="chart-header"><h4>服务数量排行</h4></div>
-        <BarChart height="320px"/>
+        <BarChart height="320px" />
       </div>
     </div>
 
-    <!-- 4. 待办事项卡片 -->
+    <!-- 5. 待办事项卡片 -->
     <div class="todo-card">
       <div class="todo-header">
         <h3>待办事项</h3>
@@ -199,9 +181,7 @@ onMounted(() => {
       <div class="todo-items">
         <div class="todo-item" @click="goToServices">
           <div class="todo-icon pending-icon">
-            <el-icon>
-              <Goods/>
-            </el-icon>
+            <el-icon><Goods /></el-icon>
           </div>
           <div class="todo-info">
             <div class="todo-title">待审核服务</div>
@@ -213,22 +193,20 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 5. 最近订单 -->
+    <!-- 6. 最近订单 -->
     <div class="recent-orders">
       <div class="section-header">
         <h3>最近订单</h3>
         <span class="more-link">查看更多 &gt;</span>
       </div>
 
-      <el-table :data="recentOrders" style="width: 100%" @row-click="goToOrderDetail"
-                :header-cell-style="{ background: '#f5f9f2', color: '#7c8b72' }">
+      <el-table :data="recentOrders" style="width: 100%" @row-click="goToOrderDetail" :header-cell-style="{ background: '#f5f9f2', color: '#7c8b72' }">
         <el-table-column prop="id" label="订单号" min-width="180">
           <template #default="{ row }">
             <span class="order-id">{{ row.id }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="service.title" label="服务名称" min-width="200"
-                         show-overflow-tooltip/>
+        <el-table-column prop="service.title" label="服务名称" min-width="200" show-overflow-tooltip />
         <el-table-column label="买家/卖家" min-width="140">
           <template #default="{ row }">
             <span>{{ row.buyer?.nickname || '-' }} / {{ row.seller?.nickname || '-' }}</span>
@@ -265,56 +243,31 @@ onMounted(() => {
   background: #fafdf7;
 }
 
-/* ========== 地图 + KPI 左右布局 ========== */
-.map-kpi-wrapper {
-  display: flex;
+/* 统计卡片网格 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   margin-bottom: 24px;
-  min-height: 580px;
-  height: calc(100vh - 200px);
-  max-height: 700px;
 }
 
-.kpi-side {
-  width: 140px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.map-center {
-  flex: 1;
-  min-width: 0;
+.stat-card {
   background: white;
   border-radius: 20px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  transition: all 0.3s ease;
-}
-
-.stat-card-vertical {
-  background: white;
-  border-radius: 20px;
-  padding: 20px 12px;
+  padding: 20px 24px;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  text-align: center;
+  gap: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.3s ease;
-  height: calc(50% - 10px);
-  justify-content: center;
-  flex: 1;
 }
 
-.stat-card-vertical:hover {
+.stat-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
 
-.stat-card-vertical .stat-icon {
+.stat-icon {
   width: 56px;
   height: 56px;
   border-radius: 16px;
@@ -323,44 +276,37 @@ onMounted(() => {
   justify-content: center;
   background: #eef3f0;
   color: #9bb096;
-  margin-bottom: 12px;
 }
 
-.stat-card-vertical .stat-value {
+.stat-info {
+  flex: 1;
+}
+
+.stat-value {
   font-size: 28px;
   font-weight: 600;
   color: #2c3e4e;
   line-height: 1.2;
+  margin-bottom: 4px;
 }
 
-.stat-card-vertical .stat-label {
+.stat-label {
   font-size: 14px;
   color: #8faa8a;
-  margin-top: 4px;
 }
 
-/* 响应式：侧边栏展开时缩小 KPI 卡片 */
-@media (max-width: 1400px) {
-  .kpi-side {
-    width: 120px;
-  }
+/* 地图卡片 */
+.map-card {
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
 
-  .stat-card-vertical {
-    padding: 16px 8px;
-  }
-
-  .stat-card-vertical .stat-value {
-    font-size: 24px;
-  }
-
-  .stat-card-vertical .stat-label {
-    font-size: 12px;
-  }
-
-  .stat-card-vertical .stat-icon {
-    width: 48px;
-    height: 48px;
-  }
+.map-card:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
 
 /* 待办事项卡片 */
