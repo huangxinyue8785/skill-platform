@@ -3,9 +3,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import {ref, onMounted} from 'vue'
 import * as echarts from 'echarts'
-import { getServiceList } from '@/api/admin'
+import {getServiceList} from '@/api/admin'
 
 const props = defineProps({
   height: {
@@ -80,8 +80,7 @@ const updateChart = () => {
       orient: 'vertical',
       left: 'left',
       textStyle: {color: '#7c8b72'},
-      // ✅ 如果还是太多，可以限制图例数量
-      type: 'scroll',
+      type: 'scroll',        // ✅ 如果太多可以滚动
       pageIconColor: '#9bb096',
       pageTextStyle: {color: '#7c8b72'}
     },
@@ -89,30 +88,18 @@ const updateChart = () => {
       {
         name: '服务分类',
         type: 'pie',
-        radius: ['40%', '65%'],  // ✅ 环形图，更美观
-        center: ['55%', '50%'],  // ✅ 往右移一点，给图例留空间
+        radius: '55%',        // ✅ 保持原来的实心饼图
+        center: ['55%', '50%'], // ✅ 往右移一点，给图例留空间
         data: chartData.value,
         label: {
           show: true,
           formatter: '{b}: {d}%',
-          color: '#5a6e7c',
-          fontSize: 11
-        },
-        labelLine: {
-          length: 10,
-          length2: 8,
-          smooth: true
+          color: '#5a6e7c'
         },
         itemStyle: {
           borderRadius: 8,
           borderColor: '#fff',
           borderWidth: 2
-        },
-        emphasis: {
-          scale: true,
-          label: {
-            fontWeight: 'bold'
-          }
         }
       }
     ]
