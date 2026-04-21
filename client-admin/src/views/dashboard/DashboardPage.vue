@@ -114,84 +114,67 @@ onMounted(() => {
 
 <template>
   <div class="dashboard-page">
-    <!-- 统计卡片 -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon user-icon">
-          <el-icon :size="28"><User /></el-icon>
-        </div>
-        <div class="stat-info">
+    <!-- 1. 地图 + 两侧 KPI 卡片 -->
+    <div class="map-kpi-wrapper">
+      <!-- 左侧 KPI -->
+      <div class="kpi-side kpi-left">
+        <div class="stat-card-vertical">
+          <div class="stat-icon user-icon"><el-icon :size="32"><User /></el-icon></div>
           <div class="stat-value">{{ stats.userTotal }}</div>
           <div class="stat-label">总用户数</div>
         </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon service-icon">
-          <el-icon :size="28"><Goods /></el-icon>
-        </div>
-        <div class="stat-info">
-          <div class="stat-value">{{ stats.serviceTotal }}</div>
-          <div class="stat-label">总服务数</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon order-icon">
-          <el-icon :size="28"><ShoppingCart /></el-icon>
-        </div>
-        <div class="stat-info">
+        <div class="stat-card-vertical">
+          <div class="stat-icon order-icon"><el-icon :size="32"><ShoppingCart /></el-icon></div>
           <div class="stat-value">{{ stats.orderTotal }}</div>
           <div class="stat-label">总订单数</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon amount-icon">
-          <el-icon :size="28"><Money /></el-icon>
+
+      <!-- 中间地图 -->
+      <div class="map-center">
+        <ChinaMap height="100%" />
+      </div>
+
+      <!-- 右侧 KPI -->
+      <div class="kpi-side kpi-right">
+        <div class="stat-card-vertical">
+          <div class="stat-icon service-icon"><el-icon :size="32"><Goods /></el-icon></div>
+          <div class="stat-value">{{ stats.serviceTotal }}</div>
+          <div class="stat-label">总服务数</div>
         </div>
-        <div class="stat-info">
+        <div class="stat-card-vertical">
+          <div class="stat-icon amount-icon"><el-icon :size="32"><Money /></el-icon></div>
           <div class="stat-value">{{ formatPrice(stats.amountTotal) }}</div>
           <div class="stat-label">总交易额</div>
         </div>
       </div>
     </div>
 
-    <!-- 2. 全国地图（新增，独占一行） -->
-    <div class="map-card">
-      <ChinaMap height="600px" />
-    </div>
-
-    <!-- 图表区域 -->
+    <!-- 2. 图表区域：两个折线图 -->
     <div class="charts-grid">
       <div class="chart-card">
-        <div class="chart-header">
-          <h4>近7天用户增长趋势</h4>
-        </div>
+        <div class="chart-header"><h4>近7天用户增长趋势</h4></div>
         <LineChart type="user" height="280px" />
       </div>
       <div class="chart-card">
-        <div class="chart-header">
-          <h4>近7天订单趋势</h4>
-        </div>
+        <div class="chart-header"><h4>近7天订单趋势</h4></div>
         <LineChart type="order" height="280px" />
       </div>
     </div>
 
-    <!-- 饼图 + 柱状图 -->
+    <!-- 3. 饼图 + 柱状图 -->
     <div class="charts-grid">
       <div class="chart-card">
-        <div class="chart-header">
-          <h4>服务分类分布</h4>
-        </div>
+        <div class="chart-header"><h4>服务分类分布</h4></div>
         <PieChart height="320px" />
       </div>
       <div class="chart-card">
-        <div class="chart-header">
-          <h4>服务数量排行</h4>
-        </div>
+        <div class="chart-header"><h4>服务数量排行</h4></div>
         <BarChart height="320px" />
       </div>
     </div>
 
-    <!-- 待办事项卡片 -->
+    <!-- 4. 待办事项卡片 -->
     <div class="todo-card">
       <div class="todo-header">
         <h3>待办事项</h3>
@@ -199,9 +182,7 @@ onMounted(() => {
       </div>
       <div class="todo-items">
         <div class="todo-item" @click="goToServices">
-          <div class="todo-icon pending-icon">
-            <el-icon><Goods /></el-icon>
-          </div>
+          <div class="todo-icon pending-icon"><el-icon><Goods /></el-icon></div>
           <div class="todo-info">
             <div class="todo-title">待审核服务</div>
             <div class="todo-desc">用户发布的服务需要审核</div>
@@ -544,17 +525,70 @@ onMounted(() => {
   font-size: 14px;
 }
 
-/* 地图卡片 */
-.map-card {
+.map-kpi-wrapper {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 24px;
+  height: 460px;
+}
+
+.kpi-side {
+  width: 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  justify-content: center;
+}
+
+.map-center {
+  flex: 1;
   background: white;
   border-radius: 20px;
   padding: 16px;
-  margin-bottom: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  transition: all 0.3s ease;
 }
 
-.map-card:hover {
+.stat-card-vertical {
+  background: white;
+  border-radius: 20px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+  height: calc(50% - 10px);
+  justify-content: center;
+}
+
+.stat-card-vertical:hover {
+  transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.stat-card-vertical .stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef3f0;
+  color: #9bb096;
+  margin-bottom: 12px;
+}
+
+.stat-card-vertical .stat-value {
+  font-size: 28px;
+  font-weight: 600;
+  color: #2c3e4e;
+  line-height: 1.2;
+}
+
+.stat-card-vertical .stat-label {
+  font-size: 14px;
+  color: #8faa8a;
+  margin-top: 4px;
 }
 </style>
