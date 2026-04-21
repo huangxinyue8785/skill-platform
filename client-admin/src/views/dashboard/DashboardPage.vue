@@ -5,6 +5,7 @@ import { getAdminStats, getOrderList, getServiceList } from '@/api/admin'
 import LineChart from '@/components/charts/LineChart.vue'
 import PieChart from '@/components/charts/PieChart.vue'
 import BarChart from '@/components/charts/BarChart.vue'
+import ChinaMap from '@/components/charts/ChinaMap.vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -153,25 +154,9 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 待办事项卡片 -->
-    <div class="todo-card">
-      <div class="todo-header">
-        <h3>待办事项</h3>
-        <span class="more-link" @click="goToServices">查看更多 &gt;</span>
-      </div>
-      <div class="todo-items">
-        <div class="todo-item" @click="goToServices">
-          <div class="todo-icon pending-icon">
-            <el-icon><Goods /></el-icon>
-          </div>
-          <div class="todo-info">
-            <div class="todo-title">待审核服务</div>
-            <div class="todo-desc">用户发布的服务需要审核</div>
-          </div>
-          <div class="todo-count">{{ pendingServicesCount }}</div>
-          <el-button type="primary" link size="small">去处理 &gt;</el-button>
-        </div>
-      </div>
+    <!-- 2. 全国地图（新增，独占一行） -->
+    <div class="map-card">
+      <ChinaMap height="400px" />
     </div>
 
     <!-- 图表区域 -->
@@ -203,6 +188,27 @@ onMounted(() => {
           <h4>服务数量排行</h4>
         </div>
         <BarChart height="320px" />
+      </div>
+    </div>
+
+    <!-- 待办事项卡片 -->
+    <div class="todo-card">
+      <div class="todo-header">
+        <h3>待办事项</h3>
+        <span class="more-link" @click="goToServices">查看更多 &gt;</span>
+      </div>
+      <div class="todo-items">
+        <div class="todo-item" @click="goToServices">
+          <div class="todo-icon pending-icon">
+            <el-icon><Goods /></el-icon>
+          </div>
+          <div class="todo-info">
+            <div class="todo-title">待审核服务</div>
+            <div class="todo-desc">用户发布的服务需要审核</div>
+          </div>
+          <div class="todo-count">{{ pendingServicesCount }}</div>
+          <el-button type="primary" link size="small">去处理 &gt;</el-button>
+        </div>
       </div>
     </div>
 
@@ -536,5 +542,19 @@ onMounted(() => {
   padding: 60px 0;
   color: #b8c4ae;
   font-size: 14px;
+}
+
+/* 地图卡片 */
+.map-card {
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s ease;
+}
+
+.map-card:hover {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
 }
 </style>
