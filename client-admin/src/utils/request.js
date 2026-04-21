@@ -2,7 +2,7 @@ import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
 // 根据环境自动切换 API 地址
-const baseURL = 'https://campusskill.top/api'
+const baseURL = import.meta.env.VITE_API_BASE || '/api'
 
 const request = axios.create({
   baseURL,
@@ -78,7 +78,7 @@ export const getImageUrl = (path) => {
   if (!path) return ''
   if (path.startsWith('http')) return path
   // 后端地址
-  const baseURL = 'https://campusskill.top'
+  const baseURL = import.meta.env.VITE_IMAGE_BASE || 'https://campusskill.top'
   return baseURL + path
 }
 
