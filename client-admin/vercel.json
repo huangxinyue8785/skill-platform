@@ -6,7 +6,7 @@
     },
     {
       "source": "/(.*)",
-      "destination": "http://114.132.89.130:3000/$1"
+      "destination": "/index.html"
     }
   ]
 }
