@@ -30,8 +30,14 @@ const fetchPendingServices = async () => {
   }
 }
 
+// ✅ 跳转到服务审核页
 const goToServices = () => {
   router.push('/services')
+}
+
+// ✅ 跳转到订单管理页
+const goToOrders = () => {
+  router.push('/orders')
 }
 
 const recentOrders = ref([])
@@ -63,8 +69,9 @@ const fetchRecentOrders = async () => {
   }
 }
 
+// ✅ 跳转到订单详情
 const goToOrderDetail = (row) => {
-  console.log('跳转到订单详情', row.id)
+  router.push(`/orders?id=${row.id}`)
 }
 
 const formatPrice = (price) => {
@@ -197,7 +204,7 @@ onMounted(() => {
     <div class="recent-orders">
       <div class="section-header">
         <h3>最近订单</h3>
-        <span class="more-link">查看更多 &gt;</span>
+        <span class="more-link" @click="goToOrders">查看更多 &gt;</span>
       </div>
 
       <el-table :data="recentOrders" style="width: 100%" @row-click="goToOrderDetail" :header-cell-style="{ background: '#f5f9f2', color: '#7c8b72' }">
@@ -241,6 +248,7 @@ onMounted(() => {
 <style scoped>
 .dashboard-page {
   background: #fafdf7;
+  width: 100%;
 }
 
 /* 统计卡片网格 */
@@ -249,6 +257,7 @@ onMounted(() => {
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
   margin-bottom: 24px;
+  width: 100%;
 }
 
 .stat-card {
@@ -303,6 +312,7 @@ onMounted(() => {
   margin-bottom: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.3s ease;
+  width: 100%;
 }
 
 .map-card:hover {
@@ -316,6 +326,7 @@ onMounted(() => {
   padding: 20px 24px;
   margin-bottom: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  width: 100%;
 }
 
 .todo-card:hover {
@@ -404,6 +415,7 @@ onMounted(() => {
   grid-template-columns: repeat(2, 1fr);
   gap: 20px;
   margin-bottom: 24px;
+  width: 100%;
 }
 
 .chart-card {
@@ -412,6 +424,7 @@ onMounted(() => {
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   transition: all 0.3s ease;
+  width: 100%;
 }
 
 .chart-card:hover {
@@ -437,6 +450,7 @@ onMounted(() => {
   border-radius: 20px;
   padding: 20px 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  width: 100%;
 }
 
 .section-header {
@@ -468,6 +482,7 @@ onMounted(() => {
 :deep(.el-table) {
   --el-table-border-color: #e9ede5;
   --el-table-header-bg-color: #fafdf7;
+  width: 100%;
 }
 
 :deep(.el-table th) {
